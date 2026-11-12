@@ -44,6 +44,14 @@ npm run dev
 npm run tauri build
 ```
 
+产物位于 `target/release/bundle/`（`.app` 与 `.dmg`）。DMG 打包会调用 Finder
+自动排版窗口，在无图形会话或未授予自动化权限的环境里可能长时间无响应；
+此时只构建应用包：
+
+```bash
+npm run tauri build -- --bundles app
+```
+
 ## 常用快捷键
 
 | 操作 | 快捷键 |
