@@ -1,3 +1,5 @@
+import { convertFileSrc } from "@tauri-apps/api/core";
+
 export function basename(path: string): string {
   const parts = path.split(/[\\/]/).filter(Boolean);
   return parts.length ? parts[parts.length - 1] : path;
@@ -34,4 +36,35 @@ export function samePath(a: string, b: string): boolean {
 
 export function stripMarkdownExtension(name: string): string {
   return name.replace(/\.(md|markdown|mdx|txt)$/i, "");
+}
+
+const REMOTE_SRC = /^(https?:|data:|blob:|asset:|tauri:)/i;
+const FILE_URL = /^file:\/\//i;
+
+function isAbsoluteFsPath(src: string): boolean {
+  return src.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(src);
+}
+
+/**
+ * Turn a Markdown image source into something the webview can load. Remote
+ * and data URLs pass through untouched, local paths go through Tauri's asset
+ * protocol (relative to `baseDir` unless already absolute).
+ */
+export function resolveImageSource(
+  src: string,
+  baseDir: string | null,
+): string {
+  if (!src || REMOTE_SRC.test(src)) return src;
+  try {
+    if (FILE_URL.test(src)) {
+      const raw = decodeURIComponent(src.replace(FILE_URL, ""));
+      // Windows file URLs look like file:///C:/dir/a.png.
+      return convertFileSrc(raw.replace(/^\/([a-zA-Z]:[\\/])/, "$1"));
+    }
+    if (isAbsoluteFsPath(src)) return convertFileSrc(src);
+    if (!baseDir) return src;
+    return convertFileSrc(joinPath(baseDir, src));
+  } catch {
+    return src;
+  }
 }

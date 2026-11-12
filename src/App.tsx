@@ -28,7 +28,9 @@ import {
   isTauri,
   onFsChanged,
   onMenuAction,
+  onOpenFiles,
   openFile,
+  takePendingFiles,
 } from "./lib/ipc";
 import { samePath } from "./lib/paths";
 import { resolveTheme, useSettings } from "./stores/settings";
@@ -360,6 +362,30 @@ graph TD
     return () => {
       dispose?.();
       window.clearTimeout(refreshTimer.current);
+    };
+  }, []);
+
+  // Files opened from Finder, `open -a Rypora file.md`, or the command line.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let disposed = false;
+    const openPaths = () => {
+      void takePendingFiles()
+        .then((paths) => {
+          if (disposed) return;
+          for (const path of paths) void useTabs.getState().openPath(path);
+        })
+        .catch(() => undefined);
+    };
+    let unlisten: (() => void) | undefined;
+    void onOpenFiles(openPaths).then((dispose) => {
+      unlisten = dispose;
+      // Drain anything that arrived before the listener was ready.
+      openPaths();
+    });
+    return () => {
+      disposed = true;
+      unlisten?.();
     };
   }, []);
 

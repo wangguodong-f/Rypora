@@ -24,7 +24,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'",
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob: https: http:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self'",
       "devCsp": null,
       "assetProtocol": {
         "enable": true,
@@ -36,6 +36,14 @@
     "active": true,
     "targets": "all",
     "category": "Productivity",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdx"],
+        "name": "Markdown Document",
+        "description": "Markdown document",
+        "role": "Editor"
+      }
+    ],
     "shortDescription": "A Typora-like WYSIWYG Markdown editor",
     "longDescription": "Rypora is a Rust-powered, Typora-like WYSIWYG Markdown editor built with Tauri and Milkdown.",
     "icon": [

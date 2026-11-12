@@ -105,3 +105,14 @@ export function onFsChanged(
 ): Promise<UnlistenFn> {
   return listen<string[]>("fs://changed", (event) => handler(event.payload));
 }
+
+/** Files passed by Finder, `open -a`, or the command line. */
+export function takePendingFiles(): Promise<string[]> {
+  return invoke<string[]>("take_pending_files");
+}
+
+export function onOpenFiles(
+  handler: (paths: string[]) => void,
+): Promise<UnlistenFn> {
+  return listen<string[]>("app://open-files", (event) => handler(event.payload));
+}

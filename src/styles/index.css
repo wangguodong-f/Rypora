@@ -969,6 +969,17 @@ select {
   margin: 0.9em auto;
 }
 
+.milkdown .editor img.rypora-image[data-state="error"] {
+  min-width: 180px;
+  min-height: 64px;
+  padding: 18px;
+  border: 1px dashed var(--border-strong, var(--border));
+  background: var(--bg-soft, transparent);
+  color: var(--text-faint, var(--text-soft));
+  font-size: 12px;
+  text-align: center;
+}
+
 .milkdown .editor table {
   border-collapse: collapse;
   width: 100%;

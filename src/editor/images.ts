@@ -4,33 +4,26 @@ import type { Ctx } from "@milkdown/kit/ctx";
 import { Plugin } from "@milkdown/kit/prose/state";
 import type { NodeViewConstructor } from "@milkdown/kit/prose/view";
 import { imageSchema } from "@milkdown/kit/preset/commonmark";
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { message } from "@tauri-apps/plugin-dialog";
-import { isTauri, saveImage } from "../lib/ipc";
-import { dirname, joinPath } from "../lib/paths";
+import { saveImage } from "../lib/ipc";
+import { dirname, resolveImageSource } from "../lib/paths";
 import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 
-const ABSOLUTE = /^(https?:|data:|blob:|asset:|file:|tauri:)/i;
-
 export function resolveImageSrc(src: string): string {
-  if (!src || ABSOLUTE.test(src)) return src;
-  if (!isTauri()) return src;
   const tab = useTabs.getState().getActive();
-  if (!tab?.path) return src;
-  try {
-    return convertFileSrc(joinPath(dirname(tab.path), src));
-  } catch {
-    return src;
-  }
+  return resolveImageSource(src, tab?.path ? dirname(tab.path) : null);
 }
 
 const imageNodeView: NodeViewConstructor = (node) => {
   const img = document.createElement("img");
   img.className = "rypora-image";
 
+  let current = node;
+
   const apply = (target: typeof node) => {
+    current = target;
     const src = String(target.attrs.src ?? "");
     const resolved = resolveImageSrc(src);
     if (img.getAttribute("src") !== resolved) img.src = resolved;
@@ -39,6 +32,16 @@ const imageNodeView: NodeViewConstructor = (node) => {
     if (typeof title === "string" && title) img.title = title;
     else img.removeAttribute("title");
   };
+
+  // Surface broken images instead of silently rendering an empty box.
+  img.addEventListener("load", () => {
+    img.dataset.state = "loaded";
+    apply(current);
+  });
+  img.addEventListener("error", () => {
+    img.dataset.state = "error";
+    img.title = "图片加载失败";
+  });
 
   apply(node);
 

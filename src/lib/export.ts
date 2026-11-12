@@ -1,11 +1,16 @@
-import { convertFileSrc } from "@tauri-apps/api/core";
 import { message, save } from "@tauri-apps/plugin-dialog";
 import katexCss from "katex/dist/katex.min.css?raw";
 import { getEditorCommands } from "../editor/editorBus";
 import { applySyntaxHighlighting } from "../editor/highlight";
 import { renderMermaidSvg } from "../editor/mermaid";
 import { errorMessage } from "./errors";
-import { basename, dirname, joinPath, stripMarkdownExtension } from "./paths";
+import {
+  basename,
+  dirname,
+  joinPath,
+  resolveImageSource,
+  stripMarkdownExtension,
+} from "./paths";
 import { writeTextFile } from "./ipc";
 import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
@@ -251,14 +256,10 @@ export async function exportPdf(): Promise<void> {
   article.innerHTML = commands.getHtml();
   container.appendChild(article);
 
-  if (tab.path) {
-    const base = dirname(tab.path);
-    for (const image of Array.from(article.querySelectorAll("img"))) {
-      const src = image.getAttribute("src") ?? "";
-      if (src && !/^(https?:|data:|asset:|file:)/i.test(src)) {
-        image.src = convertFileSrc(joinPath(base, src));
-      }
-    }
+  const base = tab.path ? dirname(tab.path) : null;
+  for (const image of Array.from(article.querySelectorAll("img"))) {
+    const src = image.getAttribute("src") ?? "";
+    if (src) image.src = resolveImageSource(src, base);
   }
 
   await enhanceExportElement(article);
