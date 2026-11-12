@@ -1,0 +1,157 @@
+name: Build macOS ARM64
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+
+# 同一分支的新构建会取消旧构建
+concurrency:
+  group: macos-arm64-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build macOS ARM64
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    env:
+      CARGO_TERM_COLOR: always
+
+    steps:
+      # 1. 检出代码
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # 2. 确认 Runner 是 Apple Silicon
+      - name: Check runner architecture
+        run: |
+          echo "Runner OS: $RUNNER_OS"
+          echo "Runner architecture: $RUNNER_ARCH"
+          uname -a
+
+          if [ "$RUNNER_ARCH" != "ARM64" ]; then
+            echo "Error: This workflow requires an ARM64 runner."
+            exit 1
+          fi
+
+      # 3. 安装 Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      # 4. 安装 Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      # 5. Rust 编译缓存
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+
+      # 6. 检查工具链
+      - name: Check build environment
+        run: |
+          node --version
+          npm --version
+          rustc --version
+          cargo --version
+          rustup target list --installed
+          rustc -vV
+
+      # 7. 安装前端依赖
+      - name: Install npm dependencies
+        run: npm ci
+
+      # 8. 前端构建
+      - name: Build frontend
+        run: npm run build
+
+      # 9. 构建 Tauri macOS ARM64 应用
+      # 使用临时签名身份，避免未签名应用在部分 Apple Silicon
+      # 下载场景中被 macOS 误判为损坏。
+      - name: Build Tauri application
+        env:
+          APPLE_SIGNING_IDENTITY: "-"
+        run: |
+          npm run tauri -- build --target aarch64-apple-darwin
+
+      # 10. 收集构建产物
+      - name: Collect build artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mkdir -p artifacts
+
+          echo "Searching for DMG files..."
+          find . -type f -name "*.dmg" \
+            -not -path "./artifacts/*" \
+            -print
+
+          while IFS= read -r -d '' file; do
+            cp "$file" "artifacts/$(basename "$file")"
+          done < <(
+            find . -type f -name "*.dmg" \
+              -not -path "./artifacts/*" -print0
+          )
+
+          echo "Searching for APP bundles..."
+          while IFS= read -r -d '' app; do
+            name="$(basename "$app" .app)"
+            ditto -c -k --sequesterRsrc --keepParent \
+              "$app" "artifacts/${name}.app.zip"
+          done < <(
+            find . -type d -name "*.app" \
+              -not -path "./artifacts/*" -prune -print0
+          )
+
+          echo "Collected artifacts:"
+          ls -lah artifacts
+
+          if [ -z "$(find artifacts -type f -print -quit)" ]; then
+            echo "Error: No macOS build artifacts found."
+            exit 1
+          fi
+
+      # 11. 上传构建产物
+      - name: Upload macOS ARM64 artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rypora-macOS-ARM64
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+      # 12. 构建失败时输出诊断信息
+      - name: Build diagnostics
+        if: failure()
+        run: |
+          echo "===== Runner ====="
+          uname -a
+
+          echo "===== Rust ====="
+          rustc -vV || true
+          cargo --version || true
+
+          echo "===== Target directories ====="
+          find . -maxdepth 5 -type d \
+            \( -name bundle -o -name target \) -print || true
+
+          echo "===== Build artifacts ====="
+          find . \( -name "*.dmg" -o -name "*.app" \) -print || true
