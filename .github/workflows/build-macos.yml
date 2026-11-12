@@ -100,7 +100,7 @@ jobs:
         with:
           name: Rypora-macos-${{ matrix.arch }}
           path: |
-            src-tauri/target/release/bundle/macos/
-            src-tauri/target/release/bundle/dmg/
+            **/target/release/bundle/macos/*.app
+            **/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
           retention-days: 14
