@@ -10,6 +10,7 @@ import { Welcome } from "./components/Welcome";
 import { FindBar } from "./components/FindBar";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { PromptDialog } from "./components/PromptDialog";
+import { UnsavedDialog } from "./components/UnsavedDialog";
 import { EditorPane, ExternalChangeBanner } from "./editor/EditorPane";
 import { runCommand } from "./editor/editorBus";
 import { exportHtml, exportPdf } from "./lib/export";
@@ -310,6 +311,21 @@ graph TD
     return () => dispose?.();
   }, []);
 
+  // Guard the window close button: ask before dropping unsaved changes.
+  useEffect(() => {
+    if (!isTauri()) return;
+    let dispose: (() => void) | undefined;
+    void getCurrentWindow()
+      .onCloseRequested(async (event) => {
+        event.preventDefault();
+        await requestQuit();
+      })
+      .then((unlisten) => {
+        dispose = unlisten;
+      });
+    return () => dispose?.();
+  }, []);
+
   // Workspace file watching: refresh tree and flag external changes.
   useEffect(() => {
     if (!isTauri()) return;
@@ -457,6 +473,7 @@ graph TD
       <StatusBar />
       <SettingsDialog />
       <PromptDialog />
+      <UnsavedDialog />
     </div>
   );
 }

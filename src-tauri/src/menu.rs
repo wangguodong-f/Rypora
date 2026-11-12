@@ -1,4 +1,4 @@
-use tauri::menu::{Menu, MenuItem, MenuItemBuilder, SubmenuBuilder};
+use tauri::menu::{Menu, MenuItem, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder};
 use tauri::{AppHandle, Runtime};
 
 fn item<R: Runtime>(
@@ -16,173 +16,171 @@ fn item<R: Runtime>(
 
 pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let app_menu = SubmenuBuilder::new(app, "Rypora")
-        .item(&item(app, "about", "About Rypora", None)?)
+        .item(&item(app, "about", "关于 Rypora", None)?)
         .separator()
-        .services()
+        .item(&PredefinedMenuItem::services(app, Some("服务"))?)
         .separator()
-        .hide()
-        .hide_others()
-        .show_all()
+        .item(&PredefinedMenuItem::hide(app, Some("隐藏 Rypora"))?)
+        .item(&PredefinedMenuItem::hide_others(app, Some("隐藏其他"))?)
+        .item(&PredefinedMenuItem::show_all(app, Some("全部显示"))?)
         .separator()
-        .item(&item(app, "quit", "Quit Rypora", Some("CmdOrCtrl+Q"))?)
+        .item(&item(app, "quit", "退出 Rypora", Some("CmdOrCtrl+Q"))?)
         .build()?;
 
-    let file_menu = SubmenuBuilder::new(app, "File")
-        .item(&item(app, "new-file", "New File", Some("CmdOrCtrl+N"))?)
-        .item(&item(app, "open-file", "Open File…", Some("CmdOrCtrl+O"))?)
-        .item(
-            &item(
-                app,
-                "open-folder",
-                "Open Folder…",
-                Some("CmdOrCtrl+Shift+O"),
-            )?,
-        )
+    let file_menu = SubmenuBuilder::new(app, "文件")
+        .item(&item(app, "new-file", "新建文件", Some("CmdOrCtrl+N"))?)
+        .item(&item(app, "open-file", "打开文件…", Some("CmdOrCtrl+O"))?)
+        .item(&item(
+            app,
+            "open-folder",
+            "打开文件夹…",
+            Some("CmdOrCtrl+Shift+O"),
+        )?)
         .separator()
-        .item(&item(app, "save", "Save", Some("CmdOrCtrl+S"))?)
+        .item(&item(app, "save", "保存", Some("CmdOrCtrl+S"))?)
         .item(&item(
             app,
             "save-as",
-            "Save As…",
+            "另存为…",
             Some("CmdOrCtrl+Shift+S"),
         )?)
         .separator()
-        .item(&item(app, "export-html", "Export as HTML…", None)?)
-        .item(&item(app, "export-pdf", "Export as PDF…", None)?)
+        .item(&item(app, "export-html", "导出为 HTML…", None)?)
+        .item(&item(app, "export-pdf", "导出为 PDF…", None)?)
         .separator()
-        .item(&item(app, "close-tab", "Close Tab", Some("CmdOrCtrl+W"))?)
+        .item(&item(app, "close-tab", "关闭标签页", Some("CmdOrCtrl+W"))?)
         .build()?;
 
-    let edit_menu = SubmenuBuilder::new(app, "Edit")
-        .item(&item(app, "undo", "Undo", Some("CmdOrCtrl+Z"))?)
-        .item(&item(app, "redo", "Redo", Some("CmdOrCtrl+Shift+Z"))?)
+    let edit_menu = SubmenuBuilder::new(app, "编辑")
+        .item(&item(app, "undo", "撤销", Some("CmdOrCtrl+Z"))?)
+        .item(&item(app, "redo", "重做", Some("CmdOrCtrl+Shift+Z"))?)
         .separator()
-        .cut()
-        .copy()
-        .paste()
-        .select_all()
+        .item(&PredefinedMenuItem::cut(app, Some("剪切"))?)
+        .item(&PredefinedMenuItem::copy(app, Some("复制"))?)
+        .item(&PredefinedMenuItem::paste(app, Some("粘贴"))?)
+        .item(&PredefinedMenuItem::select_all(app, Some("全选"))?)
         .separator()
-        .item(&item(app, "find", "Find…", Some("CmdOrCtrl+F"))?)
+        .item(&item(app, "find", "查找…", Some("CmdOrCtrl+F"))?)
         .item(&item(
             app,
             "replace",
-            "Find and Replace…",
+            "查找与替换…",
             Some("CmdOrCtrl+Alt+F"),
         )?)
         .separator()
         .item(&item(
             app,
             "preferences",
-            "Preferences…",
+            "设置…",
             Some("CmdOrCtrl+,"),
         )?)
         .build()?;
 
-    let format_menu = SubmenuBuilder::new(app, "Format")
-        .item(&item(app, "bold", "Bold", Some("CmdOrCtrl+B"))?)
-        .item(&item(app, "italic", "Italic", Some("CmdOrCtrl+I"))?)
+    let format_menu = SubmenuBuilder::new(app, "格式")
+        .item(&item(app, "bold", "粗体", Some("CmdOrCtrl+B"))?)
+        .item(&item(app, "italic", "斜体", Some("CmdOrCtrl+I"))?)
         .item(&item(
             app,
             "strikethrough",
-            "Strikethrough",
+            "删除线",
             Some("CmdOrCtrl+Shift+X"),
         )?)
         .item(&item(
             app,
             "inline-code",
-            "Inline Code",
+            "行内代码",
             Some("CmdOrCtrl+E"),
         )?)
-        .item(&item(app, "link", "Link…", Some("CmdOrCtrl+K"))?)
+        .item(&item(app, "link", "链接…", Some("CmdOrCtrl+K"))?)
         .separator()
-        .item(&item(app, "heading-1", "Heading 1", Some("CmdOrCtrl+1"))?)
-        .item(&item(app, "heading-2", "Heading 2", Some("CmdOrCtrl+2"))?)
-        .item(&item(app, "heading-3", "Heading 3", Some("CmdOrCtrl+3"))?)
-        .item(&item(app, "heading-4", "Heading 4", Some("CmdOrCtrl+4"))?)
-        .item(&item(app, "heading-5", "Heading 5", Some("CmdOrCtrl+5"))?)
-        .item(&item(app, "heading-6", "Heading 6", Some("CmdOrCtrl+6"))?)
-        .item(&item(app, "paragraph", "Paragraph", Some("CmdOrCtrl+0"))?)
+        .item(&item(app, "heading-1", "标题 1", Some("CmdOrCtrl+1"))?)
+        .item(&item(app, "heading-2", "标题 2", Some("CmdOrCtrl+2"))?)
+        .item(&item(app, "heading-3", "标题 3", Some("CmdOrCtrl+3"))?)
+        .item(&item(app, "heading-4", "标题 4", Some("CmdOrCtrl+4"))?)
+        .item(&item(app, "heading-5", "标题 5", Some("CmdOrCtrl+5"))?)
+        .item(&item(app, "heading-6", "标题 6", Some("CmdOrCtrl+6"))?)
+        .item(&item(app, "paragraph", "正文", Some("CmdOrCtrl+0"))?)
         .separator()
         .item(&item(
             app,
             "quote",
-            "Blockquote",
+            "引用",
             Some("CmdOrCtrl+Shift+Q"),
         )?)
         .item(&item(
             app,
             "code-block",
-            "Code Block",
+            "代码块",
             Some("CmdOrCtrl+Shift+K"),
         )?)
         .item(&item(
             app,
             "bullet-list",
-            "Bullet List",
+            "无序列表",
             Some("CmdOrCtrl+Shift+8"),
         )?)
         .item(&item(
             app,
             "ordered-list",
-            "Ordered List",
+            "有序列表",
             Some("CmdOrCtrl+Shift+7"),
         )?)
         .item(&item(
             app,
             "task-list",
-            "Task List",
+            "任务列表",
             Some("CmdOrCtrl+Shift+9"),
         )?)
         .separator()
-        .item(&item(app, "table", "Table", Some("CmdOrCtrl+T"))?)
-        .item(&item(app, "image", "Image…", Some("CmdOrCtrl+Shift+I"))?)
-        .item(&item(app, "horizontal-rule", "Horizontal Rule", None)?)
+        .item(&item(app, "table", "表格", Some("CmdOrCtrl+T"))?)
+        .item(&item(app, "image", "图片…", Some("CmdOrCtrl+Shift+I"))?)
+        .item(&item(app, "horizontal-rule", "分割线", None)?)
         .build()?;
 
-    let view_menu = SubmenuBuilder::new(app, "View")
+    let view_menu = SubmenuBuilder::new(app, "视图")
         .item(&item(
             app,
             "toggle-sidebar",
-            "Toggle Sidebar",
+            "切换侧边栏",
             Some("CmdOrCtrl+Shift+L"),
         )?)
         .separator()
-        .item(&item(app, "panel-files", "Files Panel", None)?)
-        .item(&item(app, "panel-outline", "Outline Panel", None)?)
-        .item(&item(app, "panel-search", "Search Panel", None)?)
+        .item(&item(app, "panel-files", "文件面板", None)?)
+        .item(&item(app, "panel-outline", "大纲面板", None)?)
+        .item(&item(app, "panel-search", "搜索面板", None)?)
         .separator()
         .item(&item(
             app,
             "toggle-theme",
-            "Toggle Dark Mode",
+            "切换深色模式",
             Some("CmdOrCtrl+Shift+D"),
         )?)
         .item(&item(
             app,
             "focus-mode",
-            "Focus Mode",
+            "专注模式",
             Some("CmdOrCtrl+Shift+F"),
         )?)
         .item(&item(
             app,
             "typewriter-mode",
-            "Typewriter Mode",
+            "打字机模式",
             Some("CmdOrCtrl+Shift+T"),
         )?)
         .separator()
-        .fullscreen()
+        .item(&PredefinedMenuItem::fullscreen(app, Some("进入全屏"))?)
         .build()?;
 
-    let window_menu = SubmenuBuilder::new(app, "Window")
-        .minimize()
-        .maximize()
+    let window_menu = SubmenuBuilder::new(app, "窗口")
+        .item(&PredefinedMenuItem::minimize(app, Some("最小化"))?)
+        .item(&PredefinedMenuItem::maximize(app, Some("缩放"))?)
         .separator()
-        .close_window()
+        .item(&PredefinedMenuItem::close_window(app, Some("关闭窗口"))?)
         .build()?;
 
-    let help_menu = SubmenuBuilder::new(app, "Help")
-        .item(&item(app, "shortcuts", "Keyboard Shortcuts", None)?)
-        .item(&item(app, "about", "About Rypora", None)?)
+    let help_menu = SubmenuBuilder::new(app, "帮助")
+        .item(&item(app, "shortcuts", "键盘快捷键", None)?)
+        .item(&item(app, "about", "关于 Rypora", None)?)
         .build()?;
 
     Menu::with_items(

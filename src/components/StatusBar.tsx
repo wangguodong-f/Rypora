@@ -27,11 +27,7 @@ export function StatusBar() {
           <span className="status-flash">{status}</span>
         ) : (
           <span className="status-state">
-            {tab
-              ? tab.dirty
-                ? "未保存"
-                : "已保存"
-              : "就绪"}
+            {tab ? (tab.dirty || !tab.path ? "未保存" : "已保存") : "就绪"}
           </span>
         )}
       </div>

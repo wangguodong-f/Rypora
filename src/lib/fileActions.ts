@@ -136,11 +136,11 @@ export async function closeTabWithConfirm(tabId: string): Promise<boolean> {
   const tab = useTabs.getState().tabs.find((item) => item.id === tabId);
   if (!tab) return true;
   if (tab.dirty) {
-    const shouldSave = await confirm(
-      `“${tab.title}”有未保存的更改，是否保存后关闭？`,
-      { title: "关闭标签页", kind: "warning" },
-    );
-    if (shouldSave) {
+    const choice = await useUi
+      .getState()
+      .askUnsaved("关闭标签页", `“${tab.title}”有未保存的更改。`);
+    if (choice === "cancel") return false;
+    if (choice === "save") {
       const saved = await saveTab(tabId);
       if (!saved) return false;
     }
@@ -150,20 +150,15 @@ export async function closeTabWithConfirm(tabId: string): Promise<boolean> {
 }
 
 export async function requestQuit(): Promise<void> {
-  const tabs = useTabs.getState().tabs;
-  const dirty = tabs.filter((tab) => tab.dirty);
+  const dirty = useTabs.getState().tabs.filter((tab) => tab.dirty);
   if (dirty.length) {
-    const shouldQuit = await confirm("有未保存的更改，确定要退出 Rypora 吗？", {
-      title: "退出 Rypora",
-      kind: "warning",
-    });
-    if (!shouldQuit) return;
-
-    const shouldSave = await confirm("是否保存所有更改？", {
-      title: "退出 Rypora",
-      kind: "warning",
-    });
-    if (shouldSave) {
+    const message =
+      dirty.length === 1
+        ? `“${dirty[0].title}”有未保存的更改。`
+        : `有 ${dirty.length} 个文件包含未保存的更改。`;
+    const choice = await useUi.getState().askUnsaved("退出 Rypora", message);
+    if (choice === "cancel") return;
+    if (choice === "save") {
       const saved = await saveAll(true);
       if (!saved) return;
     }

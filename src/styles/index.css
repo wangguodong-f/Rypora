@@ -244,6 +244,15 @@ select {
   color: var(--text);
 }
 
+.text-button.danger {
+  color: var(--danger);
+}
+
+.text-button.danger:hover {
+  background: var(--danger-soft, rgba(209, 73, 63, 0.12));
+  color: var(--danger);
+}
+
 .primary-button {
   padding: 6px 16px;
   border-radius: 7px;
@@ -1461,6 +1470,17 @@ select {
 
 .prompt-modal {
   width: 400px;
+}
+
+.unsaved-modal {
+  width: 420px;
+}
+
+.unsaved-message {
+  margin: 0 0 10px;
+  color: var(--text-soft);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .modal-header {

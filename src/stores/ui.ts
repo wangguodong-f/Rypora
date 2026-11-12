@@ -3,10 +3,18 @@ import type { OutlineItem, SelectionInfo } from "../lib/types";
 
 export type SidebarTab = "files" | "outline" | "search";
 
+export type UnsavedChoice = "save" | "discard" | "cancel";
+
 interface PromptState {
   title: string;
   value: string;
   resolve: (value: string | null) => void;
+}
+
+interface UnsavedState {
+  title: string;
+  message: string;
+  resolve: (choice: UnsavedChoice) => void;
 }
 
 interface UiState {
@@ -22,6 +30,7 @@ interface UiState {
   status: string | null;
   statusTimer: number | undefined;
   promptState: PromptState | null;
+  unsavedState: UnsavedState | null;
   setSidebarVisible: (visible: boolean) => void;
   toggleSidebar: () => void;
   setSidebarTab: (tab: SidebarTab) => void;
@@ -35,6 +44,8 @@ interface UiState {
   flash: (message: string) => void;
   prompt: (title: string, value?: string) => Promise<string | null>;
   resolvePrompt: (value: string | null) => void;
+  askUnsaved: (title: string, message: string) => Promise<UnsavedChoice>;
+  resolveUnsaved: (choice: UnsavedChoice) => void;
 }
 
 export const useUi = create<UiState>((set, get) => ({
@@ -50,6 +61,7 @@ export const useUi = create<UiState>((set, get) => ({
   status: null,
   statusTimer: undefined,
   promptState: null,
+  unsavedState: null,
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
   toggleSidebar: () => set({ sidebarVisible: !get().sidebarVisible }),
   setSidebarTab: (tab) => set({ sidebarTab: tab, sidebarVisible: true }),
@@ -75,5 +87,15 @@ export const useUi = create<UiState>((set, get) => ({
     if (!current) return;
     set({ promptState: null });
     current.resolve(value);
+  },
+  askUnsaved: (title, message) =>
+    new Promise<UnsavedChoice>((resolve) => {
+      set({ unsavedState: { title, message, resolve } });
+    }),
+  resolveUnsaved: (choice) => {
+    const current = get().unsavedState;
+    if (!current) return;
+    set({ unsavedState: null });
+    current.resolve(choice);
   },
 }));
