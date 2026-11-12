@@ -163,6 +163,7 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。
 ## 目录结构
 
 ```
+LICENSE                   MIT 许可证
 app-icon.png              应用图标源图（1024×1024），`tauri icon` 的输入
 app-icon.svg              可编辑的图标矢量稿
 src/                      React 前端
@@ -282,4 +283,6 @@ npm run selftest
 
 ## 许可证
 
-本项目尚未声明许可证。分发前请先添加 `LICENSE` 文件。
+本项目基于 [MIT 许可证](LICENSE) 发布。
+
+Copyright © 2026 wangguodong-f。

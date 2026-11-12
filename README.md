@@ -170,6 +170,7 @@ keyboard-shortcut reference under **Help**.
 ## Project layout
 
 ```
+LICENSE                   MIT license
 app-icon.png              App icon source (1024×1024), input for `tauri icon`
 app-icon.svg              Editable icon artwork
 src/                      React frontend
@@ -296,5 +297,6 @@ Unicode offsets) and rename. It writes a JSON report to
 
 ## License
 
-No license has been declared for this project yet. Add a `LICENSE` file before
-distributing it.
+Released under the [MIT License](LICENSE).
+
+Copyright © 2026 wangguodong-f.

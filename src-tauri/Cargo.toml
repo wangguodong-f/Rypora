@@ -3,6 +3,7 @@ name = "rypora"
 version = "0.1.0"
 description = "A Typora-like WYSIWYG Markdown editor"
 authors = ["Rypora"]
+license = "MIT"
 edition = "2024"
 
 [lib]
