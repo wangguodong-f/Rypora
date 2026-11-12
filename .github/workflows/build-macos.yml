@@ -1,0 +1,106 @@
+
+name: Build macOS
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: macOS ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-15
+
+          - arch: x64
+            runner: macos-15-intel
+
+    steps:
+      # 1. Checkout source
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # 3. Setup Rust
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      # 4. Rust cache
+      - name: Rust cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            src-tauri -> target
+
+      # 5. Check environment
+      - name: Check environment
+        run: |
+          echo "=== macOS ==="
+          sw_vers
+
+          echo "=== Architecture ==="
+          uname -m
+
+          echo "=== Xcode ==="
+          xcodebuild -version
+
+          echo "=== Node.js ==="
+          node --version
+          npm --version
+
+          echo "=== Rust ==="
+          rustc --version
+          cargo --version
+
+      # 6. Install dependencies
+      - name: Install npm dependencies
+        run: npm ci
+
+      # 7. Build Tauri application
+      - name: Build Tauri
+        run: npm run tauri build
+
+      # 8. Verify build artifacts
+      - name: Verify artifacts
+        run: |
+          echo "=== Build output ==="
+          find src-tauri/target/release/bundle \
+            -maxdepth 3 \
+            \( -name "*.dmg" -o -name "*.app" \) \
+            -print
+
+          test -d src-tauri/target/release/bundle/macos
+
+      # 9. Upload artifacts
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rypora-macos-${{ matrix.arch }}
+          path: |
+            src-tauri/target/release/bundle/macos/
+            src-tauri/target/release/bundle/dmg/
+          if-no-files-found: error
+          retention-days: 14
