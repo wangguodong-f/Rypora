@@ -1,0 +1,40 @@
+{
+  "name": "rypora",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "tauri": "tauri",
+    "selftest": "VITE_SELFTEST=1 tauri dev"
+  },
+  "dependencies": {
+    "@milkdown/kit": "^7.23.0",
+    "@milkdown/plugin-prism": "^7.23.0",
+    "@milkdown/react": "^7.23.0",
+    "@tauri-apps/api": "^2.9.0",
+    "@tauri-apps/plugin-dialog": "^2.4.0",
+    "@tauri-apps/plugin-store": "^2.4.0",
+    "katex": "^0.16.25",
+    "mdast-util-math": "^3.0.0",
+    "mermaid": "^11.12.0",
+    "micromark-extension-math": "^3.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "remark-math": "^6.0.0",
+    "unist-util-visit": "^5.0.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.12.0",
+    "@types/katex": "^0.16.8",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.8"
+  }
+}
