@@ -102,6 +102,9 @@ npm run tauri build -- --bundles app
 构建产物为 ad-hoc 签名，本地运行足够。分发给其他机器需要 Apple Developer 证书并完成
 公证。
 
+应用图标位于 `src-tauri/icons/`，由 `app-icon.png`（1024×1024）通过
+`npx tauri icon app-icon.png` 生成；可编辑的矢量源文件是 `app-icon.svg`。
+
 ## 快捷键
 
 Windows / Linux 上 `⌘` 对应 `Ctrl`。
@@ -160,6 +163,8 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。
 ## 目录结构
 
 ```
+app-icon.png              应用图标源图（1024×1024），`tauri icon` 的输入
+app-icon.svg              可编辑的图标矢量稿
 src/                      React 前端
   App.tsx                 布局、菜单 / 拖放 / 打开文件接线、自动保存
   components/             标题栏、标签栏、侧边栏、文件树、大纲、搜索、

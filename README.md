@@ -108,6 +108,9 @@ npm run tauri build -- --bundles app
 The build is ad-hoc signed, which is fine for local use. Distributing to other machines
 requires an Apple Developer certificate and notarization.
 
+App icons live in `src-tauri/icons/` and are generated from `app-icon.png` (1024×1024)
+with `npx tauri icon app-icon.png`. The editable artwork is in `app-icon.svg`.
+
 ## Keyboard shortcuts
 
 `⌘` is `Ctrl` on Windows/Linux.
@@ -167,6 +170,8 @@ keyboard-shortcut reference under **Help**.
 ## Project layout
 
 ```
+app-icon.png              App icon source (1024×1024), input for `tauri icon`
+app-icon.svg              Editable icon artwork
 src/                      React frontend
   App.tsx                 Layout, menu/drag-drop/open-file wiring, autosave
   components/             Title bar, tabs, sidebar, file tree, outline, search,
