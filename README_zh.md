@@ -1,12 +1,24 @@
-# Rypora
+<p align="center">
+  <img src="app-icon.png" width="120" height="120" alt="Rypora 应用图标" />
+</p>
 
-一个使用 **Rust + Tauri v2** 构建、类似 Typora 的所见即所得 Markdown 桌面编辑器。
+<h1 align="center">Rypora</h1>
 
-[English](README.md) | **简体中文**
+<p align="center">
+  <strong>一个使用 Rust + Tauri v2 构建的、类似 Typora 的<br />
+  所见即所得 Markdown 桌面编辑器</strong>
+</p>
+
+<p align="center"><a href="README.md">English</a> · 简体中文</p>
+
+## 简介
 
 Rypora 直接在同一个所见即所得画布里编辑纯 Markdown：没有分栏预览，也不做
 “Markdown → HTML → Markdown” 的来回转换。公式、图表、表格、任务列表和图片都在正文中
 即时渲染，而磁盘上的文件始终是普通 Markdown。
+
+桌面端基于 **Rust + Tauri v2**，前端使用 **React 19 + Milkdown 7**。文件以普通 `.md`
+保存在磁盘上，由 Rust 后端负责原子写入、冲突检测与自动保存。
 
 ## 功能
 

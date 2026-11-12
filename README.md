@@ -1,12 +1,25 @@
-# Rypora
+<p align="center">
+  <img src="app-icon.png" width="120" height="120" alt="Rypora app icon" />
+</p>
 
-A Typora-like, what-you-see-is-what-you-get Markdown desktop editor built with **Rust + Tauri v2**.
+<h1 align="center">Rypora</h1>
 
-**English** | [简体中文](README_zh.md)
+<p align="center">
+  <strong>A Typora-like, what-you-see-is-what-you-get Markdown desktop editor<br />
+  built with Rust + Tauri v2</strong>
+</p>
+
+<p align="center">English · <a href="README_zh.md">简体中文</a></p>
+
+## Overview
 
 Rypora opens plain Markdown files in a single WYSIWYG surface: no split preview, no
 rendered-HTML round trip. Math, diagrams, tables, task lists and images render inline
 while the file on disk stays ordinary Markdown.
+
+The desktop shell is **Rust + Tauri v2**; the editor is **React 19 + Milkdown 7**. Files
+stay ordinary `.md` on disk, with atomic writes, conflict detection and autosave handled
+by the Rust backend.
 
 ## Features
 
