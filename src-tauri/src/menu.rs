@@ -482,11 +482,11 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .build()?;
 
     let alert = SubmenuBuilder::new(app, "警告框")
-        .item(&dim(app, "para.alert.note", "提醒内容", None)?)
-        .item(&dim(app, "para.alert.tip", "建议内容", None)?)
-        .item(&dim(app, "para.alert.important", "重要内容", None)?)
-        .item(&dim(app, "para.alert.warning", "警告内容", None)?)
-        .item(&dim(app, "para.alert.caution", "注意内容", None)?)
+        .item(&it(app, "para.alert.note", "提醒内容", None)?)
+        .item(&it(app, "para.alert.tip", "建议内容", None)?)
+        .item(&it(app, "para.alert.important", "重要内容", None)?)
+        .item(&it(app, "para.alert.warning", "警告内容", None)?)
+        .item(&it(app, "para.alert.caution", "注意内容", None)?)
         .build()?;
 
     let task_status = SubmenuBuilder::new(app, "任务状态")
@@ -586,13 +586,13 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         )?)
         .item(&it(app, "para.insert-after", "在下方插入段落", None)?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "para.link-reference",
             "链接引用",
             Some("CmdOrCtrl+Alt+L"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "para.footnote",
             "脚注",
@@ -698,7 +698,7 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     SubmenuBuilder::new(app, "格式")
         .item(&it(app, "fmt.strong", "加粗", Some("CmdOrCtrl+B"))?)
         .item(&it(app, "fmt.emphasis", "斜体", Some("CmdOrCtrl+I"))?)
-        .item(&dim(app, "fmt.underline", "下划线", Some("CmdOrCtrl+U"))?)
+        .item(&it(app, "fmt.underline", "下划线", Some("CmdOrCtrl+U"))?)
         .item(&it(app, "fmt.code", "代码", Some("Control+Backquote"))?)
         .separator()
         .item(&it(app, "fmt.math-inline", "内联公式", Some("Control+M"))?)
@@ -708,10 +708,10 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             "删除线",
             Some("Control+Shift+Backquote"),
         )?)
-        .item(&dim(app, "fmt.highlight", "高亮", Some("CmdOrCtrl+Shift+H"))?)
-        .item(&dim(app, "fmt.superscript", "上标", None)?)
-        .item(&dim(app, "fmt.subscript", "下标", None)?)
-        .item(&dim(app, "fmt.comment", "注释", Some("Control+-"))?)
+        .item(&it(app, "fmt.highlight", "高亮", Some("CmdOrCtrl+Shift+H"))?)
+        .item(&it(app, "fmt.superscript", "上标", None)?)
+        .item(&it(app, "fmt.subscript", "下标", None)?)
+        .item(&it(app, "fmt.comment", "注释", Some("Control+-"))?)
         .separator()
         .item(&it(app, "fmt.hyperlink", "超链接", Some("CmdOrCtrl+K"))?)
         .item(&link_actions)
@@ -729,7 +729,7 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
 
 fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     SubmenuBuilder::new(app, "显示")
-        .item(&dim(
+        .item(&it(
             app,
             "view.source-mode",
             "源代码模式",

@@ -12,7 +12,7 @@ import {
   rootCtx,
 } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
-import { gfm } from "@milkdown/kit/preset/gfm";
+import { gfm, remarkGFMPlugin } from "@milkdown/kit/preset/gfm";
 import { history } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
 import { clipboard } from "@milkdown/kit/plugin/clipboard";
@@ -23,6 +23,18 @@ import { outline } from "@milkdown/kit/utils";
 import { computeOutline, createCommands } from "./commands";
 import { setEditorCommands } from "./editorBus";
 import { focusPlugin, typewriterPlugin } from "./focus";
+import {
+  alertSchema,
+  commentSchema,
+  highlightSchema,
+  linkDefinitionSchema,
+  linkRefRemark,
+  linkRefSchema,
+  richRemark,
+  subscriptSchema,
+  superscriptSchema,
+  underlineSchema,
+} from "./extensions";
 import { imagePastePlugin, imageView } from "./images";
 import {
   mathBlockSchema,
@@ -84,6 +96,9 @@ function EditorHost({
         ctx.set(prismConfig.key, {
           configureRefractor: () => getRefractor(),
         });
+        // Typora uses `~x~` for subscript, so a single tilde must not start
+        // GFM strikethrough. `~~x~~` still works.
+        ctx.set(remarkGFMPlugin.options.key, { singleTilde: false });
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown) => {
             onChangeRef.current(markdown);
@@ -101,6 +116,7 @@ function EditorHost({
             }
           });
       })
+      .use(linkRefRemark)
       .use(commonmark)
       .use(gfm)
       .use(history)
@@ -114,6 +130,15 @@ function EditorHost({
       .use(mathBlockSchema)
       .use(mathInlineView)
       .use(mathBlockView)
+      .use(richRemark)
+      .use(underlineSchema)
+      .use(highlightSchema)
+      .use(superscriptSchema)
+      .use(subscriptSchema)
+      .use(commentSchema)
+      .use(alertSchema)
+      .use(linkRefSchema)
+      .use(linkDefinitionSchema)
       .use(imageView)
       .use(mermaidPlugin)
       .use(imagePastePlugin)
@@ -161,7 +186,30 @@ interface EditorPaneProps {
   onOutline: (outline: OutlineItem[]) => void;
 }
 
+function SourceEditor({
+  tab,
+  onChange,
+}: {
+  tab: Tab;
+  onChange: (markdown: string) => void;
+}) {
+  return (
+    <div className="source-editor">
+      <textarea
+        className="source-textarea"
+        value={tab.content}
+        spellCheck={false}
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </div>
+  );
+}
+
 export function EditorPane(props: EditorPaneProps) {
+  const sourceMode = useUi((state) => state.sourceMode);
+  if (sourceMode) {
+    return <SourceEditor tab={props.tab} onChange={props.onChange} />;
+  }
   return (
     <MilkdownProvider key={`${props.tab.id}:${props.tab.revision}`}>
       <EditorHost {...props} />

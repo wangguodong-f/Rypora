@@ -26,6 +26,7 @@ import {
   deleteSelection,
   selectAll,
   setBlockType,
+  toggleMark,
 } from "@milkdown/kit/prose/commands";
 import { redo, undo } from "@milkdown/kit/prose/history";
 import { liftListItem, sinkListItem } from "@milkdown/kit/prose/schema-list";
@@ -73,6 +74,10 @@ export interface EditorCommands {
   toggleBold: () => boolean;
   toggleItalic: () => boolean;
   toggleStrike: () => boolean;
+  toggleUnderline: () => boolean;
+  toggleHighlight: () => boolean;
+  toggleSuperscript: () => boolean;
+  toggleSubscript: () => boolean;
   toggleInlineCode: () => boolean;
   toggleLink: (href: string) => boolean;
   setHeading: (level: number) => boolean;
@@ -86,6 +91,11 @@ export interface EditorCommands {
   insertTable: () => boolean;
   insertHr: () => boolean;
   insertImage: (src: string, alt?: string) => boolean;
+  insertComment: (value: string) => boolean;
+  insertAlert: (kind: string) => boolean;
+  insertLinkReference: (label: string, url: string | null) => boolean;
+  insertFootnote: () => boolean;
+  definitionUrl: (label: string) => string | null;
   insertMathInline: (value: string) => boolean;
   insertMathBlock: (value: string) => boolean;
   insertText: (text: string) => boolean;
@@ -286,6 +296,30 @@ export function createCommands(editor: Editor): EditorCommands {
     toggleBold: () => call(toggleStrongCommand),
     toggleItalic: () => call(toggleEmphasisCommand),
     toggleStrike: () => call(toggleStrikethroughCommand),
+    toggleUnderline: () =>
+      withView((view) => {
+        const type = view.state.schema.marks.underline;
+        if (!type) return false;
+        return toggleMark(type)(view.state, view.dispatch);
+      }) ?? false,
+    toggleHighlight: () =>
+      withView((view) => {
+        const type = view.state.schema.marks.highlight;
+        if (!type) return false;
+        return toggleMark(type)(view.state, view.dispatch);
+      }) ?? false,
+    toggleSuperscript: () =>
+      withView((view) => {
+        const type = view.state.schema.marks.superscript;
+        if (!type) return false;
+        return toggleMark(type)(view.state, view.dispatch);
+      }) ?? false,
+    toggleSubscript: () =>
+      withView((view) => {
+        const type = view.state.schema.marks.subscript;
+        if (!type) return false;
+        return toggleMark(type)(view.state, view.dispatch);
+      }) ?? false,
     toggleInlineCode: () => call(toggleInlineCodeCommand),
     toggleLink: (href) => call(toggleLinkCommand, { href }),
     setHeading: (level) => call(wrapInHeadingCommand, level),
@@ -334,6 +368,110 @@ export function createCommands(editor: Editor): EditorCommands {
     insertTable: () => call(insertTableCommand, { row: 3, col: 3 }),
     insertHr: () => call(insertHrCommand),
     insertImage: (src, alt = "") => call(insertImageCommand, { src, alt }),
+    insertComment: (value) =>
+      withView((view) => {
+        const type = view.state.schema.nodes.comment;
+        if (!type) return false;
+        view.dispatch(
+          view.state.tr
+            .replaceSelectionWith(type.create({ value }))
+            .scrollIntoView(),
+        );
+        view.focus();
+        return true;
+      }) ?? false,
+    insertAlert: (kind) =>
+      withView((view) => {
+        const type = view.state.schema.nodes.alert;
+        if (!type) return false;
+        const paragraph = view.state.schema.nodes.paragraph.create();
+        const node = type.create({ kind: kind.toUpperCase() }, paragraph);
+        const { $from } = view.state.selection;
+        const pos = $from.depth >= 1 ? $from.after(1) : $from.pos;
+        const tr = view.state.tr.insert(pos, node);
+        const selection = TextSelection.near(
+          tr.doc.resolve(Math.min(pos + 2, tr.doc.content.size)),
+        );
+        view.dispatch(tr.setSelection(selection).scrollIntoView());
+        view.focus();
+        return true;
+      }) ?? false,
+    insertLinkReference: (label, url) =>
+      withView((view) => {
+        const { state } = view;
+        const markType = state.schema.marks.link_ref;
+        const defType = state.schema.nodes.link_definition;
+        if (!markType || !defType) return false;
+        const { from, to, empty } = state.selection;
+        if (empty || !label) return false;
+
+        let exists = false;
+        state.doc.descendants((node) => {
+          if (node.type === defType && node.attrs.label === label) {
+            exists = true;
+            return false;
+          }
+          return true;
+        });
+
+        let tr = state.tr.addMark(
+          from,
+          to,
+          markType.create({ label, referenceType: "full" }),
+        );
+        if (!exists && url) {
+          const definition = defType.create({
+            identifier: label,
+            label,
+            url,
+            title: null,
+          });
+          tr = tr.insert(tr.doc.content.size, definition);
+        }
+        view.dispatch(tr.scrollIntoView());
+        view.focus();
+        return true;
+      }) ?? false,
+    insertFootnote: () =>
+      withView((view) => {
+        const { state } = view;
+        const refType = state.schema.nodes.footnote_reference;
+        const defType = state.schema.nodes.footnote_definition;
+        const paragraph = state.schema.nodes.paragraph;
+        if (!refType || !defType || !paragraph) return false;
+
+        let max = 0;
+        state.doc.descendants((node) => {
+          if (node.type === defType) {
+            const value = Number.parseInt(String(node.attrs.label ?? ""), 10);
+            if (!Number.isNaN(value)) max = Math.max(max, value);
+          }
+          return true;
+        });
+        const label = String(max + 1);
+
+        let tr = state.tr.replaceSelectionWith(refType.create({ label }));
+        const insertPos = tr.doc.content.size;
+        tr = tr.insert(insertPos, defType.create({ label }, paragraph.create()));
+        const selection = TextSelection.near(
+          tr.doc.resolve(Math.min(insertPos + 2, tr.doc.content.size)),
+        );
+        view.dispatch(tr.setSelection(selection).scrollIntoView());
+        view.focus();
+        return true;
+      }) ?? false,
+    definitionUrl: (label) =>
+      withView((view) => {
+        let url: string | null = null;
+        view.state.doc.descendants((node) => {
+          if (node.type.name === "link_definition" && node.attrs.label === label) {
+            url = String(node.attrs.url ?? "");
+            return false;
+          }
+          return true;
+        });
+        return url;
+      }) ?? null,
     insertMathInline: (value) =>
       withView((view) => {
         const type = view.state.schema.nodes.math_inline;

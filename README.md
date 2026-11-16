@@ -27,6 +27,10 @@ by the Rust backend.
 
 - True WYSIWYG editing for headings, bold / italic / strikethrough, quotes, ordered,
   unordered and task lists, tables, fenced code blocks and horizontal rules
+- Typora-style extensions: underline, highlight, superscript, subscript, inline and block
+  comments, five alert kinds, link references and footnotes, all read and written as plain
+  Markdown
+- Source mode (⌘/) edits the raw Markdown while sharing content with the WYSIWYG view
 - Inline (`$…$`) and block (`$$…$$`) math rendered with KaTeX; double-click a formula to edit it
 - Mermaid diagrams previewed live inside the document, and rendered to SVG on export
 - Syntax highlighting in code fences (Rust, TypeScript/JavaScript, Python, Go, Java,
@@ -177,6 +181,9 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | Task list | ⌘⌥X |
 | Insert table | ⌘⌥T |
 | Horizontal line | ⌘⌥- |
+| Link reference | ⌘⌥L |
+| Footnote | ⌘⌥R |
+| Note / Tip / Important / Warning / Caution | **Paragraph → Alerts** menu |
 
 **Format**
 
@@ -184,9 +191,13 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | --- | --- |
 | Bold | ⌘B |
 | Italic | ⌘I |
+| Underline | ⌘U |
 | Code | ⌃&#96; |
 | Strikethrough | ⌃⇧&#96; |
+| Highlight | ⌘⇧H |
+| Superscript / subscript | **Format** menu |
 | Inline math | ⌃M |
+| Comment | ⌃- |
 | Link… | ⌘K |
 | Insert image… | ⌃⌘I |
 | Clear formatting | ⌘\ |
@@ -202,6 +213,7 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | Search | ⌘⇧F |
 | Actual size | ⌘⇧0 |
 | Zoom in / out | ⌘⇧= / ⌘⇧- |
+| Source mode | ⌘/ |
 
 The native menu bar exposes the same commands, plus window controls, full screen and a
 keyboard-shortcut reference under **Help**.
@@ -218,6 +230,8 @@ src/                      React frontend
                           status bar, find bar, settings and dialogs
   editor/                 Milkdown setup and custom plugins
     EditorPane.tsx        Editor instance, plugin composition, outline/selection
+    extensions.ts         Underline/highlight/super/subscript, comments, alerts,
+                          link references and footnotes
     math.ts               KaTeX inline and block nodes
     mermaid.ts            Live diagram widget
     images.ts             Image node view, paste/drop handling
@@ -257,6 +271,22 @@ altering the Markdown that is written back to disk.
 - **Images** are resolved per document directory. Pasted or dropped files are written to
   `assets/` beside the document (with automatic `name-1.png` de-duplication) and inserted
   as relative paths.
+
+### Extended syntax
+
+Underline, highlight, superscript, subscript, comments, alerts, link references and
+footnotes have no standard mdast nodes. `src/editor/extensions.ts` uses one remark
+transformer to recognise them in text, HTML and block quotes, registers a ProseMirror mark
+or node for each, and pairs it with a `toMarkdown` handler that writes the original form
+back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and link definitions.
+
+- The extensions only affect the in-memory editor; files on disk remain plain Markdown.
+- GFM's `singleTilde` is disabled so `~x~` means subscript; `~~x~~` still means strikethrough.
+- Alerts render as coloured blocks but are stored as `> [!KIND]` block quotes.
+- Footnotes reuse GFM's `footnote_reference` / `footnote_definition`; inserting one appends
+  its definition at the end of the document.
+- Source mode puts the same `tab.content` into a plain textarea, so saving behaves exactly
+  like the WYSIWYG view.
 
 ### File I/O and conflicts
 
@@ -333,6 +363,8 @@ Unicode offsets) and rename. It writes a JSON report to
 - Windows and Linux builds are untested.
 - The main JS chunk is about 1.36 MB (Milkdown, KaTeX and Prism); code splitting is a
   pending optimisation.
+- Source mode is a plain textarea without syntax highlighting.
+- Link definitions render as a read-only block; edit their URL in source mode.
 - DMG creation depends on Finder automation (see [Building](#building)).
 
 ## License

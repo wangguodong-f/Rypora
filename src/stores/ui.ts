@@ -23,6 +23,7 @@ interface UiState {
   dark: boolean;
   focusMode: boolean;
   typewriterMode: boolean;
+  sourceMode: boolean;
   findOpen: boolean;
   findQuery: string;
   findReplacement: string;
@@ -40,6 +41,7 @@ interface UiState {
   setDark: (dark: boolean) => void;
   setFocusMode: (value: boolean) => void;
   setTypewriterMode: (value: boolean) => void;
+  setSourceMode: (value: boolean) => void;
   setFindOpen: (value: boolean) => void;
   setFindQuery: (value: string) => void;
   setFindReplacement: (value: string) => void;
@@ -60,6 +62,7 @@ export const useUi = create<UiState>((set, get) => ({
   dark: false,
   focusMode: false,
   typewriterMode: false,
+  sourceMode: false,
   findOpen: false,
   findQuery: "",
   findReplacement: "",
@@ -77,6 +80,7 @@ export const useUi = create<UiState>((set, get) => ({
   setDark: (dark) => set({ dark }),
   setFocusMode: (value) => set({ focusMode: value }),
   setTypewriterMode: (value) => set({ typewriterMode: value }),
+  setSourceMode: (value) => set({ sourceMode: value }),
   setFindOpen: (value) => set({ findOpen: value }),
   setFindQuery: (value) => set({ findQuery: value }),
   setFindReplacement: (value) => set({ findReplacement: value }),

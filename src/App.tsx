@@ -531,6 +531,45 @@ function applyMenuAction(action: string): void {
     case "para.table.copy":
       copyFromEditor(runCommand("tableMarkdown"), "表格");
       return;
+    case "para.alert.note":
+    case "para.alert.tip":
+    case "para.alert.important":
+    case "para.alert.warning":
+    case "para.alert.caution": {
+      const kind = action.split(".").pop() ?? "note";
+      runCommand("insertAlert", kind);
+      return;
+    }
+    case "para.link-reference": {
+      const selected = (runCommand("selectionText") ?? "").trim();
+      if (!selected) {
+        ui.flash("请先选中要作为链接的文字");
+        return;
+      }
+      const suggested = selected.replace(/\s+/g, "-").slice(0, 40);
+      void ui.prompt("引用名称", suggested).then((label) => {
+        if (!label) return;
+        const existing = runCommand("definitionUrl", label) ?? "";
+        void ui
+          .prompt(
+            existing
+              ? `链接地址（已有定义 ${existing}）`
+              : "链接地址（留空表示稍后添加定义）",
+            existing || "https://",
+          )
+          .then((url) => {
+            const target = url && url !== "https://" ? url : null;
+            const ok = runCommand("insertLinkReference", label, target);
+            if (!ok) useUi.getState().flash("插入链接引用失败");
+          });
+      });
+      return;
+    }
+    case "para.footnote":
+      if (runCommand("insertFootnote") === false) {
+        ui.flash("插入脚注失败");
+      }
+      return;
     case "para.math-block":
       void ui.prompt("公式块").then((value) => {
         if (value === null) return;
@@ -593,11 +632,35 @@ function applyMenuAction(action: string): void {
     case "fmt.clear":
       runCommand("clearFormat");
       return;
+    case "fmt.underline":
+      runCommand("toggleUnderline");
+      return;
+    case "fmt.highlight":
+      runCommand("toggleHighlight");
+      return;
+    case "fmt.superscript":
+      runCommand("toggleSuperscript");
+      return;
+    case "fmt.subscript":
+      runCommand("toggleSubscript");
+      return;
+    case "fmt.comment":
+      void ui.prompt("注释内容").then((value) => {
+        if (value === null) return;
+        runCommand("insertComment", value);
+      });
+      return;
     case "fmt.image.insert":
     case "fmt.image.insert-local":
       void insertImageDialog();
       return;
 
+    case "view.source-mode": {
+      const next = !ui.sourceMode;
+      ui.setSourceMode(next);
+      ui.flash(next ? "已切换到源代码模式" : "已返回所见即所得");
+      return;
+    }
     case "view.focus-mode":
       ui.setFocusMode(!ui.focusMode);
       return;
