@@ -45,7 +45,19 @@ export interface FindResult {
   total: number;
 }
 
-export type ThemeMode = "light" | "dark" | "auto";
+export type ThemeMode =
+  | "light"
+  | "dark"
+  | "auto"
+  | "github"
+  | "gothic"
+  | "newsprint"
+  | "night"
+  | "pixyll"
+  | "whitey";
+
+/** Themes that are inherently dark, used for icons and `color-scheme`. */
+export const DARK_THEMES: ThemeMode[] = ["dark", "night"];
 
 export interface AppSettings {
   theme: ThemeMode;
@@ -59,6 +71,8 @@ export interface AppSettings {
   sidebarWidth: number;
   recentFiles: string[];
   lastFolder: string | null;
+  /** Base directory for image paths that start with `/`. */
+  imageRoot: string | null;
 }
 
 export interface Tab {

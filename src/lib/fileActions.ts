@@ -1,18 +1,27 @@
 import { confirm, message, open, save } from "@tauri-apps/plugin-dialog";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import {
+  copyImage,
+  deleteFile,
+  deletePath,
   importImage,
+  moveImage,
+  newWindow as newWindowIpc,
   openFile,
+  pathExists,
+  readTextFile,
   saveFile,
   saveImage,
 } from "./ipc";
 import { errorMessage, isConflict } from "./errors";
-import { basename, dirname, joinPath } from "./paths";
+import { basename, dirname, joinPath, relativize } from "./paths";
+import { convertImport, importTarget, IMPORT_FILTERS } from "./import";
 import { useSettings, resolveTheme } from "../stores/settings";
 import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 import { runCommand } from "../editor/editorBus";
+import { reloadAllImages } from "../editor/images";
 
 const MARKDOWN_FILTER = {
   name: "Markdown",
@@ -39,6 +48,72 @@ export async function openFolderDialog(): Promise<void> {
 
 export function newTab(): void {
   useTabs.getState().newTab();
+}
+
+export async function newWindow(path?: string | null): Promise<void> {
+  try {
+    await newWindowIpc(path ?? null);
+  } catch (error) {
+    useUi.getState().flash(`新建窗口失败：${errorMessage(error)}`);
+  }
+}
+
+/** **File → Import**: convert the chosen file and save it as Markdown beside it. */
+export async function importFile(): Promise<void> {
+  const selected = await open({
+    multiple: false,
+    directory: false,
+    filters: IMPORT_FILTERS,
+  });
+  if (typeof selected !== "string") return;
+
+  try {
+    const raw = await readTextFile(selected);
+    const markdown = convertImport(selected, raw);
+    let target = importTarget(selected);
+    const dot = target.lastIndexOf(".");
+    const stem = dot > 0 ? target.slice(0, dot) : target;
+    let index = 1;
+    while (await pathExists(target)) {
+      target = `${stem}-${index}.md`;
+      index += 1;
+    }
+
+    const result = await saveFile(target, markdown, null, null);
+    useTabs.getState().openContent({
+      path: target,
+      content: markdown,
+      mtime: result.mtime,
+      size: result.size,
+      hash: result.hash,
+    });
+    if (useWorkspace.getState().root) void useWorkspace.getState().refresh();
+    useUi.getState().flash(`已导入 ${basename(target)}`);
+  } catch (error) {
+    await message(errorMessage(error), { title: "导入失败", kind: "error" });
+  }
+}
+
+/** **File → Delete**: move the active document to the system trash. */
+export async function deleteActiveFile(): Promise<void> {
+  const tab = useTabs.getState().getActive();
+  if (!tab?.path) {
+    useUi.getState().flash("该文件尚未保存到磁盘");
+    return;
+  }
+  const ok = await confirm(`将“${tab.title}”移到废纸篓？`, {
+    title: "删除文件",
+    kind: "warning",
+  });
+  if (!ok) return;
+  try {
+    await deletePath(tab.path);
+    useTabs.getState().close(tab.id);
+    if (useWorkspace.getState().root) void useWorkspace.getState().refresh();
+    useUi.getState().flash(`已删除 ${tab.title}`);
+  } catch (error) {
+    await message(errorMessage(error), { title: "删除失败", kind: "error" });
+  }
 }
 
 export async function saveTab(
@@ -228,9 +303,174 @@ export async function insertImageBytes(
 
 export function toggleTheme(): void {
   const settings = useSettings.getState();
-  const next =
-    resolveTheme(settings.theme) === "dark" ? "light" : "dark";
-  settings.update({ theme: next });
+  settings.update({ theme: resolveTheme(settings.theme) === "dark" ? "light" : "dark" });
+}
+
+/** Absolute file-system path for an image reference in the active document. */
+export function absoluteImagePath(
+  src: string | null | undefined,
+): string | null {
+  if (!src) return null;
+  if (/^(https?:|data:|blob:|asset:|tauri:)/i.test(src)) return null;
+
+  let raw = src;
+  if (/^file:\/\//i.test(raw)) {
+    try {
+      raw = decodeURIComponent(raw.replace(/^file:\/\//i, ""));
+    } catch {
+      return null;
+    }
+  }
+
+  const imageRoot = useSettings.getState().imageRoot;
+  if (raw.startsWith("/") && imageRoot) {
+    return joinPath(imageRoot, raw.replace(/^\/+/, ""));
+  }
+  if (raw.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(raw)) return raw;
+
+  const tab = useTabs.getState().getActive();
+  if (!tab?.path) return null;
+  return joinPath(dirname(tab.path), raw);
+}
+
+function documentDir(): string | null {
+  const tab = useTabs.getState().getActive();
+  return tab?.path ? dirname(tab.path) : null;
+}
+
+function referenceFor(target: string): string {
+  const dir = documentDir();
+  return dir ? relativize(dir, target) : target;
+}
+
+async function uniqueTarget(dir: string, name: string): Promise<string> {
+  const dot = name.lastIndexOf(".");
+  const stem = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  let candidate = joinPath(dir, name);
+  let index = 1;
+  while (await pathExists(candidate)) {
+    candidate = joinPath(dir, `${stem}-${index}${ext}`);
+    index += 1;
+  }
+  return candidate;
+}
+
+export async function copyActiveImage(): Promise<void> {
+  const src = runCommand("imageSource");
+  const absolute = absoluteImagePath(src);
+  if (!absolute) {
+    useUi.getState().flash("光标不在本地图片上");
+    return;
+  }
+  const selected = await save({
+    defaultPath: absolute,
+    title: "复制图片到…",
+  });
+  if (typeof selected !== "string" || selected === absolute) return;
+  try {
+    await copyImage(absolute, selected);
+    runCommand("updateImageSource", src ?? "", referenceFor(selected));
+    useUi.getState().flash(`图片已复制到 ${basename(selected)}`);
+  } catch (error) {
+    await message(errorMessage(error), { title: "复制图片失败", kind: "error" });
+  }
+}
+
+export async function moveActiveImage(): Promise<void> {
+  const src = runCommand("imageSource");
+  const absolute = absoluteImagePath(src);
+  if (!absolute) {
+    useUi.getState().flash("光标不在本地图片上");
+    return;
+  }
+  const selected = await save({
+    defaultPath: absolute,
+    title: "重命名或移动图片到…",
+  });
+  if (typeof selected !== "string" || selected === absolute) return;
+  try {
+    await moveImage(absolute, selected);
+    runCommand("updateImageSource", src ?? "", referenceFor(selected));
+    useUi.getState().flash(`图片已移动到 ${basename(selected)}`);
+  } catch (error) {
+    await message(errorMessage(error), { title: "移动图片失败", kind: "error" });
+  }
+}
+
+export async function deleteActiveImageFile(): Promise<void> {
+  const src = runCommand("imageSource");
+  const absolute = absoluteImagePath(src);
+  if (!absolute) {
+    useUi.getState().flash("光标不在本地图片上");
+    return;
+  }
+  const ok = await confirm(`删除图片文件“${basename(absolute)}”？`, {
+    title: "删除图片文件",
+    kind: "warning",
+  });
+  if (!ok) return;
+  try {
+    await deleteFile(absolute);
+    useUi.getState().flash("图片文件已删除");
+  } catch (error) {
+    await message(errorMessage(error), {
+      title: "删除图片失败",
+      kind: "error",
+    });
+  }
+}
+
+async function relocateAllImages(mode: "copy" | "move"): Promise<void> {
+  const sources = runCommand("imageSources") ?? [];
+  if (!sources.length) {
+    useUi.getState().flash("文档中没有本地图片");
+    return;
+  }
+  const dir = await open({ multiple: false, directory: true, title: "选择目标文件夹" });
+  if (typeof dir !== "string") return;
+
+  let done = 0;
+  for (const src of sources) {
+    const absolute = absoluteImagePath(src);
+    if (!absolute) continue;
+    try {
+      const target = await uniqueTarget(dir, basename(absolute));
+      if (mode === "copy") await copyImage(absolute, target);
+      else await moveImage(absolute, target);
+      runCommand("updateImageSource", src, referenceFor(target));
+      done += 1;
+    } catch (error) {
+      await message(errorMessage(error), {
+        title: mode === "copy" ? "复制图片失败" : "移动图片失败",
+        kind: "error",
+      });
+      return;
+    }
+  }
+  useUi.getState().flash(
+    `${mode === "copy" ? "已复制" : "已移动"} ${done} 张图片到 ${basename(dir)}`,
+  );
+}
+
+export function copyAllImages(): Promise<void> {
+  return relocateAllImages("copy");
+}
+
+export function moveAllImages(): Promise<void> {
+  return relocateAllImages("move");
+}
+
+export function reloadImages(): void {
+  reloadAllImages();
+  useUi.getState().flash("已重新加载图片");
+}
+
+export async function chooseImageRoot(): Promise<void> {
+  const dir = await open({ multiple: false, directory: true, title: "选择图片根目录" });
+  if (typeof dir !== "string") return;
+  useSettings.getState().update({ imageRoot: dir });
+  useUi.getState().flash(`图片根目录：${dir}`);
 }
 
 export async function reloadTab(tabId: string): Promise<void> {

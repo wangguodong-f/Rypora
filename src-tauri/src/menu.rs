@@ -22,17 +22,66 @@ fn dim<R: Runtime>(
     MenuItem::with_id(app, id, label, false, accelerator)
 }
 
-fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
-    let recent = SubmenuBuilder::new(app, "打开最近文件")
-        .item(&dim(
+/// Short label for a recent file: `note.md — ~/Documents`.
+fn recent_label(path: &str) -> String {
+    let file = std::path::Path::new(path);
+    let name = file
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(path);
+    match file.parent().and_then(|p| p.to_str()) {
+        Some(dir) if !dir.is_empty() => {
+            let home = std::env::var("HOME").ok();
+            let dir = match home {
+                Some(home) if dir.starts_with(&home) => {
+                    format!("~{}", &dir[home.len()..])
+                }
+                _ => dir.to_string(),
+            };
+            format!("{name} — {dir}")
+        }
+        _ => name.to_string(),
+    }
+}
+
+fn recent_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    recent: &[String],
+) -> tauri::Result<Submenu<R>> {
+    let mut builder = SubmenuBuilder::new(app, "打开最近文件");
+    for (index, path) in recent.iter().take(12).enumerate() {
+        let item = MenuItem::with_id(
             app,
-            "file.recent.reopen",
-            "重新打开关闭的文件",
-            Some("CmdOrCtrl+Shift+T"),
-        )?)
-        .separator()
-        .item(&dim(app, "file.recent.clear", "清除最近文件", None)?)
-        .build()?;
+            format!("file.recent.open.{index}"),
+            recent_label(path),
+            true,
+            None::<&str>,
+        )?;
+        builder = builder.item(&item);
+    }
+    if !recent.is_empty() {
+        builder = builder.separator();
+    }
+    builder = builder.item(&it(
+        app,
+        "file.recent.reopen",
+        "重新打开关闭的文件",
+        Some("CmdOrCtrl+Shift+T"),
+    )?);
+    builder = builder.separator();
+    builder = builder.item(&if recent.is_empty() {
+        dim(app, "file.recent.clear", "清除最近文件", None)?
+    } else {
+        it(app, "file.recent.clear", "清除最近文件", None)?
+    });
+    builder.build()
+}
+
+fn file_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    recent_files: &[String],
+) -> tauri::Result<Submenu<R>> {
+    let recent = recent_menu(app, recent_files)?;
 
     let export = SubmenuBuilder::new(app, "导出")
         .item(&it(app, "file.export.html", "HTML…", None)?)
@@ -52,7 +101,7 @@ fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             "新建标签页",
             Some("CmdOrCtrl+T"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "file.new-window",
             "新建窗口",
@@ -62,7 +111,7 @@ fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&it(app, "file.open", "打开…", Some("CmdOrCtrl+O"))?)
         .item(&it(app, "file.open-folder", "打开文件夹…", None)?)
         .item(&recent)
-        .item(&dim(
+        .item(&it(
             app,
             "file.quick-open",
             "快速打开…",
@@ -74,7 +123,7 @@ fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&it(app, "file.reveal-tree", "在文件树中显示", None)?)
         .item(&it(app, "file.reveal-finder", "打开文件位置", None)?)
         .separator()
-        .item(&dim(app, "file.delete", "删除…", None)?)
+        .item(&it(app, "file.delete", "删除…", None)?)
         .separator()
         .item(&it(app, "file.close", "关闭", Some("CmdOrCtrl+W"))?)
         .separator()
@@ -93,7 +142,7 @@ fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             Some("CmdOrCtrl+Alt+S"),
         )?)
         .separator()
-        .item(&dim(app, "file.import", "导入…", None)?)
+        .item(&it(app, "file.import", "导入…", None)?)
         .item(&export)
         .separator()
         .item(&dim(
@@ -617,21 +666,21 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .build()?;
 
     let zoom = SubmenuBuilder::new(app, "缩放图片")
-        .item(&dim(app, "fmt.image.zoom.25", "25%", None)?)
-        .item(&dim(app, "fmt.image.zoom.33", "33%", None)?)
-        .item(&dim(app, "fmt.image.zoom.50", "50%", None)?)
-        .item(&dim(app, "fmt.image.zoom.67", "67%", None)?)
-        .item(&dim(app, "fmt.image.zoom.80", "80%", None)?)
+        .item(&it(app, "fmt.image.zoom.25", "25%", None)?)
+        .item(&it(app, "fmt.image.zoom.33", "33%", None)?)
+        .item(&it(app, "fmt.image.zoom.50", "50%", None)?)
+        .item(&it(app, "fmt.image.zoom.67", "67%", None)?)
+        .item(&it(app, "fmt.image.zoom.80", "80%", None)?)
         .separator()
-        .item(&dim(app, "fmt.image.zoom.100", "100%", None)?)
+        .item(&it(app, "fmt.image.zoom.100", "100%", None)?)
         .separator()
-        .item(&dim(app, "fmt.image.zoom.150", "150%", None)?)
-        .item(&dim(app, "fmt.image.zoom.200", "200%", None)?)
+        .item(&it(app, "fmt.image.zoom.150", "150%", None)?)
+        .item(&it(app, "fmt.image.zoom.200", "200%", None)?)
         .build()?;
 
     let syntax = SubmenuBuilder::new(app, "转换图片语法")
-        .item(&dim(app, "fmt.image.syntax.markdown", "Markdown 语法", None)?)
-        .item(&dim(app, "fmt.image.syntax.html", "HTML 语法", None)?)
+        .item(&it(app, "fmt.image.syntax.markdown", "Markdown 语法", None)?)
+        .item(&it(app, "fmt.image.syntax.html", "HTML 语法", None)?)
         .build()?;
 
     let insert_mode = SubmenuBuilder::new(app, "当插入本地图片时")
@@ -662,10 +711,10 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&zoom)
         .item(&syntax)
         .separator()
-        .item(&dim(app, "fmt.image.delete-file", "删除图片文件", None)?)
+        .item(&it(app, "fmt.image.delete-file", "删除图片文件", None)?)
         .separator()
-        .item(&dim(app, "fmt.image.copy-to", "复制图片到…", None)?)
-        .item(&dim(
+        .item(&it(app, "fmt.image.copy-to", "复制图片到…", None)?)
+        .item(&it(
             app,
             "fmt.image.rename",
             "重命名 / 移动图片到…",
@@ -673,8 +722,8 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         )?)
         .item(&dim(app, "fmt.image.upload", "上传图片", None)?)
         .separator()
-        .item(&dim(app, "fmt.image.copy-all", "复制所有图片到…", None)?)
-        .item(&dim(app, "fmt.image.move-all", "移动所有图片到…", None)?)
+        .item(&it(app, "fmt.image.copy-all", "复制所有图片到…", None)?)
+        .item(&it(app, "fmt.image.move-all", "移动所有图片到…", None)?)
         .item(&dim(
             app,
             "fmt.image.upload-all",
@@ -682,12 +731,12 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             None,
         )?)
         .separator()
-        .item(&dim(app, "fmt.image.reload-all", "重新加载所有图片", None)?)
+        .item(&it(app, "fmt.image.reload-all", "重新加载所有图片", None)?)
         .separator()
         .item(&insert_mode)
-        .item(&dim(app, "fmt.image.root-path", "设置图片根目录", None)?)
+        .item(&it(app, "fmt.image.root-path", "设置图片根目录", None)?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "fmt.image.global-settings",
             "全局图像设置…",
@@ -804,12 +853,12 @@ fn theme_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&it(app, "theme.light", "浅色", None)?)
         .item(&it(app, "theme.dark", "深色", None)?)
         .separator()
-        .item(&dim(app, "theme.github", "Github", None)?)
-        .item(&dim(app, "theme.gothic", "Gothic", None)?)
-        .item(&dim(app, "theme.newsprint", "Newsprint", None)?)
-        .item(&dim(app, "theme.night", "Night", None)?)
-        .item(&dim(app, "theme.pixyll", "Pixyll", None)?)
-        .item(&dim(app, "theme.whitey", "Whitey", None)?)
+        .item(&it(app, "theme.github", "Github", None)?)
+        .item(&it(app, "theme.gothic", "Gothic", None)?)
+        .item(&it(app, "theme.newsprint", "Newsprint", None)?)
+        .item(&it(app, "theme.night", "Night", None)?)
+        .item(&it(app, "theme.pixyll", "Pixyll", None)?)
+        .item(&it(app, "theme.whitey", "Whitey", None)?)
         .build()
 }
 
@@ -818,7 +867,7 @@ fn window_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&PredefinedMenuItem::minimize(app, Some("最小化"))?)
         .item(&PredefinedMenuItem::maximize(app, Some("缩放"))?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "window.bring-all-to-front",
             "前置全部窗口",
@@ -834,7 +883,11 @@ fn help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .build()
 }
 
-pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {    let app_menu = SubmenuBuilder::new(app, "Rypora")
+pub fn build_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    recent_files: &[String],
+) -> tauri::Result<Menu<R>> {
+    let app_menu = SubmenuBuilder::new(app, "Rypora")
         .item(&it(app, "app.about", "关于 Rypora", None)?)
         .separator()
         .item(&it(app, "app.preferences", "设置…", Some("CmdOrCtrl+,"))?)
@@ -852,7 +905,7 @@ pub fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {   
         app,
         &[
             &app_menu,
-            &file_menu(app)?,
+            &file_menu(app, recent_files)?,
             &edit_menu(app)?,
             &paragraph_menu(app)?,
             &format_menu(app)?,

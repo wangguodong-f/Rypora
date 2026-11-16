@@ -34,21 +34,33 @@ Rypora 直接在同一个所见即所得画布里编辑纯 Markdown：没有分�
 - 代码块语法高亮（Rust、TypeScript/JavaScript、Python、Go、Java、C/C++、SQL、JSON、
   YAML、Bash 等），基于 Prism / refractor
 - 多标签编辑、工作区文件树、文档大纲、工作区搜索、文档内查找替换
+- 多窗口编辑（⌘⇧N）：每个窗口各自持有标签页，菜单命令作用于当前聚焦窗口
+- 快速打开（⌘⇧O）按文件名 / 路径模糊检索已打开标签、最近文件与工作区；
+  「文件 → 打开最近文件」同步最近 12 条，⌘⇧T 可重新打开刚关闭的标签
 - 图片：粘贴或拖入后保存到文档同级的 `assets/` 目录；相对路径、绝对路径、`file://`
   URL、远程 `https` 图片和 `data:` URL 都能正常显示
+- 图片管理：25–200% 缩放、Markdown / HTML 语法互转、复制 / 移动 / 删除图片文件、
+  重新加载全部图片，以及为以 `/` 开头的路径设置图片根目录
 - 中英文混排的字数与字符统计，状态栏实时显示行列号
 
 **工作区与文件**
 
 - 可以从应用内、访达双击、`open -a Rypora 文档.md` 或命令行参数打开文档
-- 文件树支持新建文件 / 文件夹、重命名、删除（移入系统废纸篓）
+- **导入** Markdown、纯文本与 HTML；HTML 会转换为 Markdown，结果写成源文件同目录的
+  `name.md`（不会覆盖已有文件，重名时追加 `-1`）
+- 文件树支持新建文件 / 文件夹、重命名、删除（移入系统废纸篓）；「文件 → 删除」将
+  当前文档移入废纸篓
 - 自动保存（可配置防抖），并检测外部修改、提示冲突（mtime + BLAKE3）
 - 原子写入（临时文件 + rename），崩溃不会留下写了一半的文档
 - 关闭脏标签页或窗口时，弹出 **保存 / 不保存 / 取消** 三按钮对话框，避免误丢改动
+- 打开文件不会弄脏或改写文件：编辑器加载时会规范化 Markdown（例如 `*` 列表项变为
+  `-`），并把规范化结果作为基线
 
 **外观与导出**
 
-- 浅色、深色、跟随系统三种主题；专注模式与打字机模式
+- 三种界面模式（跟随系统、浅色、深色），外加 Typora 的六套主题：Github、Gothic、
+  Newsprint、Night、Pixyll、Whitey；Night 属于深色主题，共用深色语法配色
+- 专注模式与打字机模式
 - 可调字号、行宽、侧边栏显隐与拼写检查
 - 设置跨启动持久化
 - 导出为自包含的 HTML（内联 KaTeX 样式、Mermaid 渲染为 SVG、重新应用语法高亮），
@@ -123,8 +135,8 @@ npm run tauri build -- --bundles app
 ## 快捷键
 
 Windows / Linux 上 `⌘` 对应 `Ctrl`。菜单栏与 Typora 一致，为 **文件 / 编辑 / 段落 / 格式 /
-显示 / 主题 / 窗口**，已实现的功能沿用 Typora 的同一套快捷键。尚未实现的菜单项仍然显示，
-但处于置灰状态。
+显示 / 主题 / 窗口 / 帮助**，已实现的功能沿用 Typora 的同一套快捷键。尚未实现的菜单项
+仍然显示，但处于置灰状态。
 
 **文件**
 
@@ -132,7 +144,10 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。菜单栏与 Typora 一致，为 **文
 | --- | --- |
 | 新建 | ⌘N |
 | 新建标签页 | ⌘T |
+| 新建窗口 | ⌘⇧N |
 | 打开… | ⌘O |
+| 快速打开… | ⌘⇧O |
+| 重新打开关闭的文件 | ⌘⇧T |
 | 保存 | ⌘S |
 | 另存为… | ⌘⇧S |
 | 保存全部打开的文件 | ⌘⌥S |
@@ -207,7 +222,16 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。菜单栏与 Typora 一致，为 **文
 | 放大 / 缩小 | ⌘⇧= / ⌘⇧- |
 | 源代码模式 | ⌘/ |
 
+**主题**
+
+| 操作 | 位置 |
+| --- | --- |
+| 跟随系统 / 浅色 / 深色 | 「主题」菜单 |
+| Github / Gothic / Newsprint / Night / Pixyll / Whitey | 「主题」菜单或设置 |
+
 原生菜单栏提供同样的命令，另有窗口控制、全屏，以及 **帮助** 下的键盘快捷键一览。
+图片缩放、图片语法、复制 / 移动 / 删除图片与图片根目录位于「格式 → 图像」，作用于
+光标所在或紧邻光标的图片。
 
 ## 目录结构
 
@@ -218,26 +242,28 @@ app-icon.svg              可编辑的图标矢量稿
 src/                      React 前端
   App.tsx                 布局、菜单 / 拖放 / 打开文件接线、自动保存
   components/             标题栏、标签栏、侧边栏、文件树、大纲、搜索、
-                          状态栏、查找栏、设置与各类对话框
+                          状态栏、查找栏、快速打开、设置与各类对话框
   editor/                 Milkdown 装配与自定义插件
     EditorPane.tsx        编辑器实例、插件组合、大纲与选区信息
-    extensions.ts         下划线 / 高亮 / 上下标 / 注释 / 警告框 / 链接引用 / 脚注
+    extensions.ts         下划线 / 高亮 / 上下标 / 注释 / 警告框 / 链接引用 /
+                          脚注 / HTML 图片语法
     math.ts               KaTeX 行内 / 块级节点
     mermaid.ts            图表实时预览组件
-    images.ts             图片节点视图、粘贴 / 拖入处理
+    images.ts             图片节点视图、粘贴 / 拖入处理、缩放
     tasks.ts              任务列表渲染与勾选
     highlight.ts          共享的 Prism / refractor 配置
     focus.ts              专注模式与打字机模式
-    commands.ts           格式化命令与大纲提取
-  lib/                    IPC 封装、文件操作、导出、路径、剪贴板、自测
+    commands.ts           格式化、表格、图片与选区命令
+  lib/                    IPC 封装、文件操作、导出、导入（HTML → Markdown）、
+                          模糊匹配、Markdown 比较、路径、剪贴板、自测
   stores/                 Zustand 状态：tabs、workspace、ui、settings
-  styles/index.css        应用样式与打印样式
+  styles/index.css        应用样式、Typora 主题与打印样式
 src-tauri/                Rust 后端
-  src/lib.rs              Builder、插件、窗口 / 菜单事件、待打开文件
+  src/lib.rs              Builder、插件、多窗口与按窗口的待打开文件、最近文件菜单同步
   src/commands/fs.rs      读写、目录树、重命名 / 删除、图片
   src/commands/search.rs  工作区搜索
   src/commands/platform.rs 剪贴板、访达定位、外部链接
-  src/menu.rs             原生中文菜单栏
+  src/menu.rs             原生中文菜单栏（含打开最近文件）
   src/watcher.rs          基于 `notify` 的递归文件监听
   src/error.rs            可序列化的错误类型
   tauri.conf.json         窗口、CSP、asset 协议、打包信息
@@ -272,6 +298,44 @@ src-tauri/                Rust 后端
 - 脚注复用 GFM 的 `footnote_reference` / `footnote_definition`，插入时自动追加定义。
 - 源代码模式把同一份 `tab.content` 放进纯文本区域，保存路径与所见即所得视图一致。
 
+### 多窗口、最近文件与快速打开
+
+**新建窗口** 通过 `new_window` 创建 `doc-N` webview 窗口，加载同一个前端入口。待打开
+文件按窗口 label 分别存储，因此在另一个窗口聚焦时执行 `open -a Rypora 文档.md`，文件会
+在聚焦窗口打开；菜单事件同样只发给聚焦窗口。
+
+前端把最多 24 条最近路径保存在设置里，并通过 `set_recent_files` 推给 Rust；Rust 重建
+原生菜单，「打开最近文件」按由新到旧列出最多 12 条，ID 为
+`file.recent.open.<index>`。⌘⇧T 从已关闭标签栈中恢复。
+
+快速打开把已打开标签、最近文件与工作区文件树合并，再用模糊匹配按完整路径排序
+（子序列匹配，并对词首与连续命中加权）。
+
+### 图片
+
+图片是带有 `src`、`alt`、`title`、`zoom` 与 `syntax` 的 ProseMirror 节点。`zoom` 是
+缩放百分比（0 表示默认），由节点视图应用；`syntax` 记录文档里保存为 `![alt](src)` 还是
+`<img …>`。HTML 形式会被解析回图片节点，因此在两种语法之间切换是无损的，缩放写成
+`style="zoom:50%;"`。
+
+相对路径按文档所在目录解析。设置图片根目录后，以 `/` 开头的路径改为相对该根目录解析，
+而不是文件系统根目录（即 Typora 的「图片根目录」语义）。复制 / 移动 / 删除作用于图片
+对应的文件；删除前会确认，移动后文档中的 `src` 会同步改写。
+
+### 导入
+
+「文件 → 导入」支持 Markdown、纯文本与 HTML。Markdown 原样复制，纯文本保留段落分隔，
+HTML 由一个轻量 DOM 遍历器（`src/lib/html.ts`）把标题、列表、表格、代码、强调、链接
+和图片转换为 Markdown。结果写到源文件同目录的 `name.md`；若已存在，则依次尝试
+`name-1.md`、`name-2.md`…… 项目不依赖 pandoc，因此 Word / LaTeX / ePub 的导入导出
+保持置灰。
+
+### 主题
+
+主题就是普通 CSS：六套 Typora 主题在 `[data-theme="…"]` 下覆盖同一组 token（`--bg`、
+`--text`、`--accent` 等）。`auto` 根据 `prefers-color-scheme` 解析为 `light` 或 `dark`；
+仅在深色下生效的 token 覆盖挂在 `[data-dark="true"]` 上，Night 因此也能共用。
+
 ### 文件读写与冲突
 
 `save_file` 会带上调用方期望的 `mtime` 与内容哈希；写入前重新读取文件，只要其中一项
@@ -285,16 +349,18 @@ src-tauri/                Rust 后端
 
 | 命令 | 用途 |
 | --- | --- |
-| `open_file`、`save_file`、`write_text_file` | 读取、带冲突检测的保存、直接写入 |
+| `open_file`、`save_file`、`write_text_file`、`read_text_file` | 读取、带冲突检测的保存、直接写入 |
 | `read_dir_tree` | 递归读取目录，用于文件树 |
 | `create_file`、`create_folder`、`rename_path`、`delete_path`、`path_exists` | 文件管理（删除走废纸篓） |
-| `save_image`、`import_image` | 把图片复制到文档同级 `assets/` |
+| `delete_file` | 永久删除单个文件（用于删除图片） |
+| `save_image`、`import_image`、`copy_image`、`move_image` | 把图片写入 `assets/`、复制或移动图片文件 |
 | `search_workspace` | 按行搜索工作区，列号映射兼容 Unicode |
 | `watch_workspace`、`unwatch_workspace` | 安装 / 移除递归监听 |
-| `take_pending_files` | 取走启动时传入的文件（访达、`open -a`、argv） |
+| `take_pending_files(window)`、`new_window` | 按窗口取走待打开文件、新建窗口 |
+| `set_recent_files`、`focus_all_windows` | 重建「打开最近文件」菜单、置前所有窗口 |
 
-事件：`menu://action`（原生菜单）、`fs://changed`（文件监听）、`app://open-files`
-（应用运行期间打开文档）。
+事件：`menu://action`（原生菜单，发给聚焦窗口）、`fs://changed`（文件监听）、
+`app://open-files`（应用运行期间打开文档）。
 
 ### 安全模型
 
@@ -313,13 +379,14 @@ src-tauri/                Rust 后端
 
 | 设置项 | 默认值 | 范围 / 说明 |
 | --- | --- | --- |
-| 主题 | 跟随系统 | 自动 / 浅色 / 深色 |
+| 主题 | 跟随系统 | 自动 / 浅色 / 深色，另加 github、gothic、newsprint、night、pixyll、whitey |
 | 字号 | 16 px | 13–24 |
 | 行宽 | 760 px | 560–1200 |
 | 自动保存 | 开启 | 防抖 300–4000 ms，默认 800 ms |
 | 拼写检查 | 开启 | — |
 | 侧边栏 | 显示 | 宽度持久化 |
-| 最近打开 | — | 最多 24 条 |
+| 最近打开 | — | 保存 24 条，菜单列出 12 条 |
+| 图片根目录 | 未设置 | 以 `/` 开头的图片路径相对此目录解析 |
 
 ## 测试
 
@@ -345,6 +412,9 @@ npm run selftest
 - 主 JS chunk 约 1.36 MB（Milkdown、KaTeX、Prism），代码拆分仍待优化。
 - 源代码模式是纯文本区域，暂不做语法高亮。
 - 链接定义以只读块显示，修改地址需进入源代码模式。
+- 导入仅支持 Markdown、纯文本与 HTML；Word、LaTeX、ePub 需要 pandoc 等外部转换器，
+  仍保持置灰。
+- 图片缩放以 HTML `<img style="zoom:…">` 保存；转回 Markdown 语法会丢弃缩放。
 - DMG 打包依赖 Finder 自动化（见[构建](#构建)）。
 
 ## 许可证

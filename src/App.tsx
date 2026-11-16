@@ -10,16 +10,28 @@ import { Welcome } from "./components/Welcome";
 import { FindBar } from "./components/FindBar";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { PromptDialog } from "./components/PromptDialog";
+import { QuickOpen } from "./components/QuickOpen";
 import { UnsavedDialog } from "./components/UnsavedDialog";
 import { EditorPane, ExternalChangeBanner } from "./editor/EditorPane";
 import { runCommand } from "./editor/editorBus";
 import { exportHtml, exportPdf } from "./lib/export";
 import {
+  absoluteImagePath,
+  chooseImageRoot,
   closeTabWithConfirm,
+  copyActiveImage,
+  copyAllImages,
+  deleteActiveFile,
+  deleteActiveImageFile,
+  importFile,
   insertImageDialog,
+  moveActiveImage,
+  moveAllImages,
   newTab,
+  newWindow,
   openFileDialog,
   openFolderDialog,
+  reloadImages,
   reloadTab,
   requestQuit,
   saveActive,
@@ -31,16 +43,19 @@ import {
   onMenuAction,
   onOpenFiles,
   openFile,
+  setRecentFiles,
   takePendingFiles,
+  focusAllWindows,
 } from "./lib/ipc";
-import { samePath, dirname, joinPath } from "./lib/paths";
+import { basename, dirname, joinPath, samePath } from "./lib/paths";
+import { isSameMarkdown } from "./lib/markdownCompare";
 import {
   openUrl,
   readClipboardText,
   revealPath,
   writeClipboard,
 } from "./lib/clipboard";
-import { resolveTheme, useSettings } from "./stores/settings";
+import { resolveTheme, isDarkTheme, useSettings } from "./stores/settings";
 import { useTabs } from "./stores/tabs";
 import { useUi } from "./stores/ui";
 import { useWorkspace } from "./stores/workspace";
@@ -158,23 +173,6 @@ function pastePlainText(): void {
 }
 
 /** Absolute file system path for an image source in the active document. */
-function absoluteImagePath(src: string | null | undefined): string | null {
-  if (!src) return null;
-  if (/^(https?:|data:|blob:|asset:|tauri:)/i.test(src)) return null;
-  let raw = src;
-  if (/^file:\/\//i.test(raw)) {
-    try {
-      raw = decodeURIComponent(raw.replace(/^file:\/\//i, ""));
-    } catch {
-      return null;
-    }
-  }
-  if (raw.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(raw)) return raw;
-  const tabs = useTabs.getState();
-  const tab = tabs.tabs.find((item) => item.id === tabs.activeId);
-  if (!tab?.path) return null;
-  return joinPath(dirname(tab.path), raw);
-}
 
 function activeTabInfo() {
   const tabs = useTabs.getState();
@@ -285,9 +283,36 @@ function applyMenuAction(action: string): void {
     return;
   }
 
-  const theme = /^theme\.(auto|light|dark)$/.exec(action);
+  const theme = /^theme\.(auto|light|dark|github|gothic|newsprint|night|pixyll|whitey)$/.exec(
+    action,
+  );
   if (theme) {
     useSettings.getState().update({ theme: theme[1] as ThemeMode });
+    return;
+  }
+
+  const recent = /^file\.recent\.open\.(\d+)$/.exec(action);
+  if (recent) {
+    const path = useSettings.getState().recentFiles[Number(recent[1])];
+    if (path) void useTabs.getState().openPath(path);
+    return;
+  }
+
+  const zoomImage = /^fmt\.image\.zoom\.(\d+)$/.exec(action);
+  if (zoomImage) {
+    if (runCommand("setImageZoom", Number(zoomImage[1])) === false) {
+      useUi.getState().flash("光标不在图片上");
+    }
+    return;
+  }
+
+  const imageSyntax = /^fmt\.image\.syntax\.(markdown|html)$/.exec(action);
+  if (imageSyntax) {
+    const applied = runCommand(
+      "setImageSyntax",
+      imageSyntax[1] as "markdown" | "html",
+    );
+    if (!applied) useUi.getState().flash("光标不在图片上");
     return;
   }
 
@@ -295,6 +320,26 @@ function applyMenuAction(action: string): void {
     case "file.new":
     case "file.new-tab":
       newTab();
+      return;
+    case "file.new-window": {
+      void newWindow(null);
+      return;
+    }
+    case "file.quick-open":
+      ui.setQuickOpen(true);
+      return;
+    case "file.import":
+      void importFile();
+      return;
+    case "file.delete":
+      void deleteActiveFile();
+      return;
+    case "file.recent.reopen":
+      void tabs.reopenClosed();
+      return;
+    case "file.recent.clear":
+      useSettings.getState().update({ recentFiles: [] });
+      ui.flash("已清除最近文件");
       return;
     case "file.open":
       void openFileDialog();
@@ -654,6 +699,34 @@ function applyMenuAction(action: string): void {
     case "fmt.image.insert-local":
       void insertImageDialog();
       return;
+    case "fmt.image.delete-file":
+      void deleteActiveImageFile();
+      return;
+    case "fmt.image.copy-to":
+      void copyActiveImage();
+      return;
+    case "fmt.image.rename":
+      void moveActiveImage();
+      return;
+    case "fmt.image.copy-all":
+      void copyAllImages();
+      return;
+    case "fmt.image.move-all":
+      void moveAllImages();
+      return;
+    case "fmt.image.reload-all":
+      reloadImages();
+      return;
+    case "fmt.image.root-path":
+      void chooseImageRoot();
+      return;
+    case "fmt.image.global-settings":
+      ui.setSettingsOpen(true);
+      return;
+
+    case "window.bring-all-to-front":
+      void focusAllWindows();
+      return;
 
     case "view.source-mode": {
       const next = !ui.sourceMode;
@@ -722,11 +795,13 @@ function applyMenuAction(action: string): void {
 
 export default function App() {
   const theme = useSettings((state) => state.theme);
+  const recentFiles = useSettings((state) => state.recentFiles);
   const fontSize = useSettings((state) => state.fontSize);
   const lineWidth = useSettings((state) => state.lineWidth);
   const fontFamily = useSettings((state) => state.fontFamily);
   const autosave = useSettings((state) => state.autosave);
   const autosaveDelay = useSettings((state) => state.autosaveDelay);
+  const imageRoot = useSettings((state) => state.imageRoot);
   const setDark = useUi((state) => state.setDark);
   const sidebarVisible = useUi((state) => state.sidebarVisible);
   const focusMode = useUi((state) => state.focusMode);
@@ -805,8 +880,12 @@ graph TD
   useEffect(() => {
     const apply = () => {
       const resolved = resolveTheme(theme);
+      const dark = isDarkTheme(theme);
       document.documentElement.dataset.theme = resolved;
-      setDark(resolved === "dark");
+      // Dark token overrides (syntax highlighting, highlights) follow `dark`
+      // rather than the theme name, so Night shares them with Dark.
+      document.documentElement.dataset.dark = String(dark);
+      setDark(dark);
     };
     apply();
     if (theme !== "auto") return;
@@ -814,6 +893,17 @@ graph TD
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
   }, [theme, setDark]);
+
+  // Keep the native **Open Recent** menu in sync with saved settings.
+  useEffect(() => {
+    if (!isTauri()) return;
+    void setRecentFiles(recentFiles).catch(() => undefined);
+  }, [recentFiles]);
+
+  // Root-relative image paths change meaning when the image root changes.
+  useEffect(() => {
+    reloadImages();
+  }, [imageRoot]);
 
   // Typography custom properties.
   useEffect(() => {
@@ -889,8 +979,9 @@ graph TD
   useEffect(() => {
     if (!isTauri()) return;
     let disposed = false;
+    const label = getCurrentWindow().label;
     const openPaths = () => {
-      void takePendingFiles()
+      void takePendingFiles(label)
         .then((paths) => {
           if (disposed) return;
           for (const path of paths) void useTabs.getState().openPath(path);
@@ -981,6 +1072,19 @@ graph TD
     state.updateContent(tab.id, markdown);
   };
 
+  // The editor reports its canonical Markdown once on mount (trailing
+  // paragraph). Adopt that as the baseline unless it really contains edits.
+  const handleBaseline = (markdown: string) => {
+    const state = useTabs.getState();
+    const tab = state.tabs.find((item) => item.id === state.activeId);
+    if (!tab) return;
+    if (tab.dirty || !isSameMarkdown(tab.savedContent, markdown)) {
+      handleChange(markdown);
+      return;
+    }
+    state.setBaseline(tab.id, markdown);
+  };
+
   const handleSelection = (info: SelectionInfo) => {
     setSelection(info);
   };
@@ -1007,6 +1111,7 @@ graph TD
               <EditorPane
                 tab={activeTab}
                 onChange={handleChange}
+                onBaseline={handleBaseline}
                 onSelection={handleSelection}
                 onOutline={handleOutline}
               />
@@ -1019,6 +1124,7 @@ graph TD
       <StatusBar />
       <SettingsDialog />
       <PromptDialog />
+      <QuickOpen />
       <UnsavedDialog />
     </div>
   );

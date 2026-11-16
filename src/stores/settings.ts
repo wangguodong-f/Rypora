@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { LazyStore } from "@tauri-apps/plugin-store";
 import { isTauri } from "../lib/ipc";
+import { DARK_THEMES } from "../lib/types";
 import type { AppSettings, ThemeMode } from "../lib/types";
 
 export const defaultSettings: AppSettings = {
@@ -16,6 +17,7 @@ export const defaultSettings: AppSettings = {
   sidebarWidth: 250,
   recentFiles: [],
   lastFolder: null,
+  imageRoot: null,
 };
 
 const STORE_KEY = "settings";
@@ -46,6 +48,7 @@ function schedulePersist(state: AppSettings) {
       sidebarWidth: state.sidebarWidth,
       recentFiles: state.recentFiles,
       lastFolder: state.lastFolder,
+      imageRoot: state.imageRoot,
     };
     void store
       .set(STORE_KEY, payload)
@@ -81,9 +84,13 @@ export const useSettings = create<SettingsState>((set, get) => ({
   },
 }));
 
-export function resolveTheme(mode: ThemeMode): "light" | "dark" {
-  if (mode === "light" || mode === "dark") return mode;
+export function resolveTheme(mode: ThemeMode): ThemeMode {
+  if (mode !== "auto") return mode;
   return window.matchMedia("(prefers-color-scheme: dark)").matches
     ? "dark"
     : "light";
+}
+
+export function isDarkTheme(mode: ThemeMode): boolean {
+  return DARK_THEMES.includes(resolveTheme(mode));
 }

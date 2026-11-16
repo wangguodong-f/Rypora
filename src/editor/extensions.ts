@@ -7,6 +7,7 @@
 //! standard mdast node type.
 
 import { $mark, $node, $remark } from "@milkdown/kit/utils";
+import { imageSchema } from "@milkdown/kit/preset/commonmark";
 
 interface MdNode {
   type: string;
@@ -108,6 +109,42 @@ function tokenizeText(value: string, tokens: InlineToken[]): void {
   flush();
 }
 
+function decodeEntities(value: string): string {
+  return value
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#0*39;|&apos;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
+function imageAttr(source: string, name: string): string {
+  const match = new RegExp(
+    `${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`,
+    "i",
+  ).exec(source);
+  if (!match) return "";
+  return decodeEntities(match[2] ?? match[3] ?? match[4] ?? "");
+}
+
+/** `<img src="…" style="zoom:50%;" />` → an image mdast node. */
+function parseImageTag(value: string): MdNode | null {
+  const tag = /^<img\b([^>]*)\/?>$/i.exec(value);
+  if (!tag) return null;
+  const src = imageAttr(tag[1], "src");
+  if (!src) return null;
+  const style = imageAttr(tag[1], "style");
+  const zoom = /zoom\s*:\s*([\d.]+)\s*%/i.exec(style);
+  return {
+    type: "image",
+    url: src,
+    alt: imageAttr(tag[1], "alt"),
+    title: imageAttr(tag[1], "title") || null,
+    zoom: zoom ? Number(zoom[1]) : 0,
+    syntax: "html",
+  };
+}
+
 function tokenizeInline(children: MdNode[], parent: MdNode): InlineToken[] {
   const tokens: InlineToken[] = [];
 
@@ -119,6 +156,11 @@ function tokenizeInline(children: MdNode[], parent: MdNode): InlineToken[] {
 
     if (child.type === "html" && typeof child.value === "string") {
       const trimmed = child.value.trim();
+      const image = parseImageTag(trimmed);
+      if (image) {
+        tokens.push({ kind: "node", node: image });
+        continue;
+      }
       const open = /^<(u|ins|sup|sub)(?:\s[^>]*)?>$/i.exec(trimmed);
       const close = /^<\/(u|ins|sup|sub)\s*>$/i.exec(trimmed);
 
@@ -447,6 +489,98 @@ export const linkRefRemark = $remark(
 export const richRemark = $remark(
   "rypora-rich-syntax",
   () => remarkRich() as never,
+);
+
+function escapeAttr(value: unknown): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/**
+ * The commonmark image node plus the two attributes Typora stores for
+ * `<img src="…" style="zoom:50%;" />`: a zoom percentage and the syntax the
+ * image is written with.
+ */
+export const richImageSchema = imageSchema.extendSchema(
+  (base) => (ctx) => {
+    const node = base(ctx);
+    return {
+      ...node,
+      attrs: {
+        ...node.attrs,
+        zoom: { default: 0, validate: "number" },
+        syntax: { default: "markdown", validate: "string" },
+      },
+      parseDOM: [
+        {
+          tag: "img[src]",
+          getAttrs: (dom: HTMLElement) => {
+            const style = dom.getAttribute("style") ?? "";
+            const zoom = /zoom\s*:\s*([\d.]+)\s*%/i.exec(style);
+            return {
+              src: dom.getAttribute("src") ?? "",
+              alt: dom.getAttribute("alt") ?? "",
+              title:
+                dom.getAttribute("title") ?? dom.getAttribute("alt") ?? "",
+              zoom: zoom ? Number(zoom[1]) : 0,
+              syntax: zoom ? "html" : "markdown",
+            };
+          },
+        },
+      ],
+      toDOM: (target) => {
+        const attrs: Record<string, string> = {
+          src: String(target.attrs.src ?? ""),
+          alt: String(target.attrs.alt ?? ""),
+        };
+        if (target.attrs.title) attrs.title = String(target.attrs.title);
+        const zoom = Number(target.attrs.zoom ?? 0);
+        if (zoom > 0) attrs.style = `zoom:${zoom}%;`;
+        return ["img", attrs] as never;
+      },
+      parseMarkdown: {
+        match: ({ type }) => type === "image",
+        runner: (state, source, type) => {
+          state.addNode(type, {
+            src: source.url,
+            alt: source.alt ?? "",
+            title: source.title ?? "",
+            zoom: Number(source.zoom ?? 0) || 0,
+            syntax: String(source.syntax ?? "markdown"),
+          });
+        },
+      },
+      toMarkdown: {
+        match: (target) => target.type.name === "image",
+        runner: (state, target) => {
+          const zoom = Number(target.attrs.zoom ?? 0);
+          const syntax = String(target.attrs.syntax ?? "markdown");
+          if (syntax === "html" || zoom > 0) {
+            const title = target.attrs.title
+              ? ` title="${escapeAttr(target.attrs.title)}"`
+              : "";
+            const style = zoom > 0 ? ` style="zoom:${zoom}%;"` : "";
+            state.addNode(
+              "html",
+              void 0,
+              `<img src="${escapeAttr(target.attrs.src)}" alt="${escapeAttr(
+                target.attrs.alt,
+              )}"${title}${style} />`,
+            );
+            return;
+          }
+          state.addNode("image", void 0, void 0, {
+            title: target.attrs.title || null,
+            url: target.attrs.src,
+            alt: target.attrs.alt ?? "",
+          });
+        },
+      },
+    };
+  },
 );
 
 export const underlineSchema = $mark("underline", () => ({

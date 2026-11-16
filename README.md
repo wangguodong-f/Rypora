@@ -37,25 +37,41 @@ by the Rust backend.
   C/C++, SQL, JSON, YAML, Bash, and more) via Prism / refractor
 - Multi-tab editing, a workspace file tree, a document outline, workspace search, and
   in-document find & replace
+- Multi-window editing (⌘⇧N); each window owns its tabs, and menu commands act on the
+  focused window
+- Quick Open (⌘⇧O) fuzzy-searches open tabs, recent files and the workspace; a
+  **File → Open Recent** submenu mirrors the last 12 files, and ⌘⇧T reopens a closed tab
 - Images: paste or drag & drop to save them into `assets/` next to the document;
   relative paths, absolute paths, `file://` URLs, remote `https` images and `data:` URLs
   all render
+- Image management: zoom 25–200 %, convert between Markdown and HTML image syntax,
+  copy / move / delete the image file, reload all images, and set an image root for
+  paths that start with `/`
 - CJK-aware word and character counts, plus live line/column in the status bar
 
 **Workspace & files**
 
 - Open files from the app, from Finder (double-click), with `open -a Rypora note.md`,
   or from the command line
-- File tree operations: create file/folder, rename, delete (moves to the system Trash)
+- **Import** Markdown, plain text and HTML; HTML is converted to Markdown and the result
+  is written as `name.md` next to the source (existing files are never overwritten —
+  a `-1` suffix is added)
+- File tree operations: create file/folder, rename, delete (moves to the system Trash);
+  **File → Delete** moves the active document to the Trash
 - Autosave with a configurable debounce, plus external-change detection and conflict
   prompts (mtime + BLAKE3)
 - Atomic writes (temporary file + rename) so a crash never leaves a half-written document
 - A three-way **Save / Don't Save / Cancel** dialog guards closing a dirty tab or the
   window
+- Opening a file never marks it dirty or rewrites it: the editor canonicalises Markdown
+  on load (for example `*` bullets become `-`) and adopts that as the baseline
 
 **Appearance & export**
 
-- Light, dark and follow-system themes; focus mode and typewriter mode
+- Three UI modes (follow system, light, dark) plus the six Typora themes: Github, Gothic,
+  Newsprint, Night, Pixyll and Whitey; Night is a dark theme and shares the dark syntax
+  tokens
+- Focus mode and typewriter mode
 - Adjustable font size, line width, sidebar visibility and spellcheck
 - Settings persist across launches
 - Export to a self-contained HTML file (KaTeX CSS inlined, Mermaid rendered to SVG,
@@ -131,8 +147,9 @@ with `npx tauri icon app-icon.png`. The editable artwork is in `app-icon.svg`.
 ## Keyboard shortcuts
 
 `⌘` is `Ctrl` on Windows/Linux. The menu bar follows Typora's layout — **File / Edit /
-Paragraph / Format / View / Themes / Window** — and uses the same accelerators where the
-feature exists. Items that are not implemented yet stay in the menu but are greyed out.
+Paragraph / Format / View / Themes / Window / Help** — and uses the same accelerators
+where the feature exists. Items that are not implemented yet stay in the menu but are
+greyed out.
 
 **File**
 
@@ -140,7 +157,10 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | --- | --- |
 | New | ⌘N |
 | New tab | ⌘T |
+| New window | ⌘⇧N |
 | Open… | ⌘O |
+| Quick open… | ⌘⇧O |
+| Reopen closed file | ⌘⇧T |
 | Save | ⌘S |
 | Save as… | ⌘⇧S |
 | Save all | ⌘⌥S |
@@ -215,8 +235,17 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | Zoom in / out | ⌘⇧= / ⌘⇧- |
 | Source mode | ⌘/ |
 
+**Themes**
+
+| Action | Where |
+| --- | --- |
+| Follow system / light / dark | **Themes** menu |
+| Github / Gothic / Newsprint / Night / Pixyll / Whitey | **Themes** menu or Settings |
+
 The native menu bar exposes the same commands, plus window controls, full screen and a
-keyboard-shortcut reference under **Help**.
+keyboard-shortcut reference under **Help**. Image zoom, image syntax, copy/move/delete and
+the image root live under **Format → Image**; they act on the image at the cursor or
+immediately next to it.
 
 ## Project layout
 
@@ -227,27 +256,29 @@ app-icon.svg              Editable icon artwork
 src/                      React frontend
   App.tsx                 Layout, menu/drag-drop/open-file wiring, autosave
   components/             Title bar, tabs, sidebar, file tree, outline, search,
-                          status bar, find bar, settings and dialogs
+                          status bar, find bar, quick open, settings and dialogs
   editor/                 Milkdown setup and custom plugins
     EditorPane.tsx        Editor instance, plugin composition, outline/selection
     extensions.ts         Underline/highlight/super/subscript, comments, alerts,
-                          link references and footnotes
+                          link references, footnotes and HTML image syntax
     math.ts               KaTeX inline and block nodes
     mermaid.ts            Live diagram widget
-    images.ts             Image node view, paste/drop handling
+    images.ts             Image node view, paste/drop handling, zoom
     tasks.ts              Task list rendering and toggling
     highlight.ts          Shared Prism/refractor setup
     focus.ts              Focus and typewriter modes
-    commands.ts           Formatting commands and outline extraction
-  lib/                    IPC wrappers, file actions, export, paths, clipboard, self-test
+    commands.ts           Formatting, table, image and selection commands
+  lib/                    IPC wrappers, file actions, export, import (HTML → Markdown),
+                          fuzzy matching, Markdown comparison, paths, clipboard, self-test
   stores/                 Zustand stores: tabs, workspace, ui, settings
-  styles/index.css        App styles and print styles
+  styles/index.css        App styles, the Typora themes and print styles
 src-tauri/                Rust backend
-  src/lib.rs              Builder, plugins, window/menu events, pending file opens
+  src/lib.rs              Builder, plugins, multi-window and per-window pending opens,
+                          recent-file menu sync
   src/commands/fs.rs      Read/write, directory tree, rename/delete, images
   src/commands/search.rs  Workspace search
   src/commands/platform.rs Clipboard, Finder reveal, external URLs
-  src/menu.rs             Native (Chinese) menu bar
+  src/menu.rs             Native (Chinese) menu bar, including Open Recent
   src/watcher.rs          Recursive file watching via `notify`
   src/error.rs            Serializable error type
   tauri.conf.json         Window, CSP, asset protocol, bundle metadata
@@ -288,6 +319,51 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
 - Source mode puts the same `tab.content` into a plain textarea, so saving behaves exactly
   like the WYSIWYG view.
 
+### Windows, recent files and quick open
+
+**New window** creates a `doc-N` webview window with the same bundle entry. Pending file
+opens are stored per window label, so `open -a Rypora note.md` while another window is
+focused opens the file in the focused window; menu events are likewise emitted only to the
+focused window.
+
+The frontend keeps up to 24 recent paths in settings and pushes them to Rust with
+`set_recent_files`; Rust rebuilds the native menu, so **Open Recent** lists up to 12
+entries as `file.recent.open.<index>`, newest first. ⌘⇧T pops the closed-tab stack.
+
+Quick Open merges open tabs, recent files and the workspace tree, then ranks them with a
+fuzzy matcher over the full path (subsequence matching with bonuses for word starts and
+consecutive hits).
+
+### Images
+
+Images are ProseMirror nodes with `src`, `alt`, `title`, `zoom` and `syntax`. `zoom` is a
+percentage (0 = default) applied by the node view; `syntax` records whether the document
+stores the image as `![alt](src)` or `<img …>`. The HTML form is parsed back into an image
+node, so converting between the two syntaxes is a lossless round trip, and zoom is written
+as `style="zoom:50%;"`.
+
+Relative paths resolve against the document directory. With an image root configured,
+paths that start with `/` resolve against that root instead of the filesystem root
+(Typora's "image root path" behaviour). Copy / move / delete act on the file behind the
+image; deletion asks for confirmation, and a moved image's `src` is rewritten in the
+document.
+
+### Import
+
+**File → Import** accepts Markdown, plain text and HTML. Markdown is copied as-is, plain
+text keeps paragraph breaks, and HTML goes through a small DOM walker
+(`src/lib/html.ts`) that maps headings, lists, tables, code, emphasis, links and images to
+Markdown. The result is written next to the source as `name.md`; if that exists,
+`name-1.md`, `name-2.md`, … are tried. There is no pandoc dependency, so Word / LaTeX /
+ePub import and export stay disabled.
+
+### Themes
+
+Themes are plain CSS: each of the six Typora themes overrides the same token set (`--bg`,
+`--text`, `--accent`, …) under `[data-theme="…"]`. `auto` resolves to `light` or `dark`
+from `prefers-color-scheme`, and dark-only token overrides hang off `[data-dark="true"]`
+so Night gets them too.
+
 ### File I/O and conflicts
 
 `save_file` takes the caller's expected `mtime` and content hash. It re-reads the file
@@ -302,16 +378,18 @@ the frontend refreshes the tree and flags tabs whose file changed on disk.
 
 | Command | Purpose |
 | --- | --- |
-| `open_file`, `save_file`, `write_text_file` | Read, conflict-checked save, direct write |
+| `open_file`, `save_file`, `write_text_file`, `read_text_file` | Read, conflict-checked save, direct write |
 | `read_dir_tree` | Recursive directory listing for the file tree |
 | `create_file`, `create_folder`, `rename_path`, `delete_path`, `path_exists` | File management (delete uses the Trash) |
-| `save_image`, `import_image` | Copy images into `assets/` next to the document |
+| `delete_file` | Permanently remove a single file (used for image deletion) |
+| `save_image`, `import_image`, `copy_image`, `move_image` | Save images into `assets/`, copy or move image files |
 | `search_workspace` | Line-based workspace search with Unicode-safe column mapping |
 | `watch_workspace`, `unwatch_workspace` | Install / drop the recursive watcher |
-| `take_pending_files` | Drain files passed at launch (Finder, `open -a`, argv) |
+| `take_pending_files(window)`, `new_window` | Per-window pending opens, create a window |
+| `set_recent_files`, `focus_all_windows` | Rebuild the Open Recent menu, raise all windows |
 
-Events: `menu://action` (native menu), `fs://changed` (watcher), `app://open-files`
-(document opened while the app is running).
+Events: `menu://action` (native menu, delivered to the focused window), `fs://changed`
+(watcher), `app://open-files` (document opened while the app is running).
 
 ### Security model
 
@@ -331,13 +409,14 @@ Settings live in `settings.json` in the app data directory
 
 | Setting | Default | Range / notes |
 | --- | --- | --- |
-| Theme | Follow system | auto / light / dark |
+| Theme | Follow system | auto / light / dark, plus github, gothic, newsprint, night, pixyll, whitey |
 | Font size | 16 px | 13–24 |
 | Line width | 760 px | 560–1200 |
 | Autosave | On | debounce 300–4000 ms, default 800 ms |
 | Spellcheck | On | — |
 | Sidebar | Visible | width persisted |
-| Recent files | — | up to 24 entries |
+| Recent files | — | up to 24 stored, 12 listed in the menu |
+| Image root | Unset | base directory for image paths starting with `/` |
 
 ## Testing
 
@@ -365,6 +444,10 @@ Unicode offsets) and rename. It writes a JSON report to
   pending optimisation.
 - Source mode is a plain textarea without syntax highlighting.
 - Link definitions render as a read-only block; edit their URL in source mode.
+- Import supports Markdown, plain text and HTML only; Word, LaTeX and ePub need an
+  external converter such as pandoc and remain disabled.
+- Image zoom is stored as an HTML `<img style="zoom:…">`; converting that image back to
+  Markdown syntax drops the zoom.
 - DMG creation depends on Finder automation (see [Building](#building)).
 
 ## License

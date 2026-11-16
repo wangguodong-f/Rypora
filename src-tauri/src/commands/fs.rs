@@ -378,3 +378,63 @@ pub async fn import_image(
     .await
     .map_err(|e| AppError::Other(e.to_string()))?
 }
+
+/// Read any text file, regardless of extension (used by **File → Import**).
+#[tauri::command]
+pub async fn read_text_file(path: String) -> AppResult<String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let bytes = fs::read(PathBuf::from(&path))?;
+        String::from_utf8(bytes).map_err(|_| AppError::NotUtf8)
+    })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn copy_image(from: String, to: String) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = PathBuf::from(&to);
+        if let Some(dir) = target.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        fs::copy(PathBuf::from(&from), &target)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn move_image(from: String, to: String) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = PathBuf::from(&to);
+        if let Some(dir) = target.parent() {
+            fs::create_dir_all(dir)?;
+        }
+        match fs::rename(PathBuf::from(&from), &target) {
+            Ok(()) => Ok(()),
+            // Rename fails across volumes; fall back to copy + delete.
+            Err(_) => {
+                fs::copy(PathBuf::from(&from), &target)?;
+                fs::remove_file(PathBuf::from(&from))?;
+                Ok(())
+            }
+        }
+    })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
+}
+
+#[tauri::command]
+pub async fn delete_file(path: String) -> AppResult<()> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let target = PathBuf::from(&path);
+        if target.is_dir() {
+            return Err(AppError::InvalidPath(path.clone()));
+        }
+        fs::remove_file(target)?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| AppError::Other(e.to_string()))?
+}

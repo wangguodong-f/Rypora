@@ -102,6 +102,16 @@ export interface EditorCommands {
   pasteText: (text: string) => boolean;
   linkHref: () => string | null;
   imageSource: () => string | null;
+  imageInfo: () => {
+    src: string;
+    alt: string;
+    zoom: number;
+    syntax: string;
+  } | null;
+  setImageZoom: (zoom: number) => boolean;
+  setImageSyntax: (syntax: "markdown" | "html") => boolean;
+  imageSources: () => string[];
+  updateImageSource: (from: string, to: string) => boolean;
   undo: () => boolean;
   redo: () => boolean;
   selectAll: () => boolean;
@@ -251,6 +261,30 @@ export function createCommands(editor: Editor): EditorCommands {
     }
     if (start === end) return null;
     return { from: base + start, to: base + end };
+  };
+
+  /** The image under or next to the cursor, with its document position. */
+  const imageTarget = (
+    view: EditorView,
+  ): { node: ProseNode; pos: number } | null => {
+    const { selection } = view.state;
+    if (
+      selection instanceof NodeSelection &&
+      selection.node.type.name === "image"
+    ) {
+      return { node: selection.node, pos: selection.from };
+    }
+    const { $from } = selection;
+    if ($from.nodeAfter?.type.name === "image") {
+      return { node: $from.nodeAfter, pos: $from.pos };
+    }
+    if ($from.nodeBefore?.type.name === "image") {
+      return {
+        node: $from.nodeBefore,
+        pos: $from.pos - $from.nodeBefore.nodeSize,
+      };
+    }
+    return null;
   };
 
   const rangeFor = (view: EditorView, mode: SelectionMode): Range | null => {
@@ -545,6 +579,77 @@ export function createCommands(editor: Editor): EditorCommands {
         }
         return null;
       }) ?? null,
+    imageInfo: () =>
+      withView((view) => {
+        const target = imageTarget(view);
+        if (!target) return null;
+        return {
+          src: String(target.node.attrs.src ?? ""),
+          alt: String(target.node.attrs.alt ?? ""),
+          zoom: Number(target.node.attrs.zoom ?? 0),
+          syntax: String(target.node.attrs.syntax ?? "markdown"),
+        };
+      }) ?? null,
+    setImageZoom: (zoom) =>
+      withView((view) => {
+        const target = imageTarget(view);
+        if (!target) return false;
+        view.dispatch(
+          view.state.tr.setNodeMarkup(target.pos, undefined, {
+            ...target.node.attrs,
+            zoom,
+          }),
+        );
+        view.focus();
+        return true;
+      }) ?? false,
+    setImageSyntax: (syntax) =>
+      withView((view) => {
+        const target = imageTarget(view);
+        if (!target) return false;
+        view.dispatch(
+          view.state.tr.setNodeMarkup(target.pos, undefined, {
+            ...target.node.attrs,
+            syntax,
+            zoom: syntax === "markdown" ? 0 : target.node.attrs.zoom,
+          }),
+        );
+        view.focus();
+        return true;
+      }) ?? false,
+    imageSources: () =>
+      withView((view) => {
+        const found = new Set<string>();
+        view.state.doc.descendants((node) => {
+          if (node.type.name === "image") {
+            const src = String(node.attrs.src ?? "");
+            if (src && !/^(https?:|data:|blob:)/i.test(src)) found.add(src);
+          }
+          return true;
+        });
+        return [...found];
+      }) ?? [],
+    updateImageSource: (from, to) =>
+      withView((view) => {
+        const { state } = view;
+        let tr = state.tr;
+        let touched = false;
+        state.doc.descendants((node, pos) => {
+          if (
+            node.type.name === "image" &&
+            String(node.attrs.src ?? "") === from
+          ) {
+            tr = tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              src: to,
+            });
+            touched = true;
+          }
+          return true;
+        });
+        if (touched) view.dispatch(tr);
+        return touched;
+      }) ?? false,
     undo: () => withView((view) => undo(view.state, view.dispatch)) ?? false,    redo: () => withView((view) => redo(view.state, view.dispatch)) ?? false,
     selectAll: () =>
       withView((view) => selectAll(view.state, view.dispatch)) ?? false,

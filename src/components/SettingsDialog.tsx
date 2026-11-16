@@ -1,3 +1,4 @@
+import { chooseImageRoot } from "../lib/fileActions";
 import { defaultSettings, useSettings } from "../stores/settings";
 import { useUi } from "../stores/ui";
 import type { ThemeMode } from "../lib/types";
@@ -7,6 +8,12 @@ const THEMES: { id: ThemeMode; label: string }[] = [
   { id: "auto", label: "跟随系统" },
   { id: "light", label: "浅色" },
   { id: "dark", label: "深色" },
+  { id: "github", label: "Github" },
+  { id: "gothic", label: "Gothic" },
+  { id: "newsprint", label: "Newsprint" },
+  { id: "night", label: "Night" },
+  { id: "pixyll", label: "Pixyll" },
+  { id: "whitey", label: "Whitey" },
 ];
 
 export function SettingsDialog() {
@@ -35,7 +42,7 @@ export function SettingsDialog() {
             <h3>外观</h3>
             <div className="settings-row">
               <label>主题</label>
-              <div className="segmented">
+              <div className="theme-grid">
                 {THEMES.map((theme) => (
                   <button
                     key={theme.id}
@@ -79,6 +86,32 @@ export function SettingsDialog() {
                 }
               />
             </div>
+          </section>
+
+          <section className="settings-group">
+            <h3>图像</h3>
+            <div className="settings-row inline">
+              <label>图片根目录</label>
+              <div className="settings-inline-actions">
+                <span className="settings-path" title={settings.imageRoot ?? ""}>
+                  {settings.imageRoot ?? "未设置"}
+                </span>
+                <button className="text-button" onClick={() => void chooseImageRoot()}>
+                  选择…
+                </button>
+                {settings.imageRoot && (
+                  <button
+                    className="text-button"
+                    onClick={() => settings.update({ imageRoot: null })}
+                  >
+                    清除
+                  </button>
+                )}
+              </div>
+            </div>
+            <p className="settings-hint">
+              设置后，以 / 开头的图片路径按此目录解析（与 Typora 的图片根目录一致）。
+            </p>
           </section>
 
           <section className="settings-group">

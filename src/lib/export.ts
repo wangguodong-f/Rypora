@@ -13,6 +13,7 @@ import {
 } from "./paths";
 import { writeTextFile } from "./ipc";
 import { useTabs } from "../stores/tabs";
+import { useSettings } from "../stores/settings";
 import { useUi } from "../stores/ui";
 
 const EXPORT_CSS = `
@@ -204,6 +205,23 @@ export async function buildExportBody(html: string): Promise<string> {
   return container.innerHTML;
 }
 
+/**
+ * Root-relative image paths (leading `/`) only make sense inside the app.
+ * Rewrite them to `file://` URLs so the exported HTML still shows them.
+ */
+function resolveExportImages(root: HTMLElement): void {
+  const imageRoot = useSettings.getState().imageRoot;
+  if (!imageRoot) return;
+  for (const image of Array.from(root.querySelectorAll("img"))) {
+    const src = image.getAttribute("src") ?? "";
+    if (!src.startsWith("/")) continue;
+    image.setAttribute(
+      "src",
+      `file://${encodeURI(joinPath(imageRoot, src.replace(/^\/+/, "")))}`,
+    );
+  }
+}
+
 export async function exportHtml(): Promise<void> {
   const commands = getEditorCommands();
   const tab = useTabs.getState().getActive();
@@ -215,6 +233,7 @@ export async function exportHtml(): Promise<void> {
   const container = document.createElement("div");
   container.innerHTML = commands.getHtml();
   await enhanceExportElement(container);
+  resolveExportImages(container);
 
   const defaultPath = tab.path
     ? joinPath(dirname(tab.path), `${stripMarkdownExtension(basename(tab.path))}.html`)
@@ -259,7 +278,12 @@ export async function exportPdf(): Promise<void> {
   const base = tab.path ? dirname(tab.path) : null;
   for (const image of Array.from(article.querySelectorAll("img"))) {
     const src = image.getAttribute("src") ?? "";
-    if (src) image.src = resolveImageSource(src, base);
+    if (src)
+      image.src = resolveImageSource(
+        src,
+        base,
+        useSettings.getState().imageRoot,
+      );
   }
 
   await enhanceExportElement(article);

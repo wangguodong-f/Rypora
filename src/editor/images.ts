@@ -8,12 +8,26 @@ import { message } from "@tauri-apps/plugin-dialog";
 import { saveImage } from "../lib/ipc";
 import { dirname, resolveImageSource } from "../lib/paths";
 import { useTabs } from "../stores/tabs";
+import { useSettings } from "../stores/settings";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 
 export function resolveImageSrc(src: string): string {
   const tab = useTabs.getState().getActive();
-  return resolveImageSource(src, tab?.path ? dirname(tab.path) : null);
+  return resolveImageSource(
+    src,
+    tab?.path ? dirname(tab.path) : null,
+    useSettings.getState().imageRoot,
+  );
+}
+
+let reloadToken = 0;
+const refreshers = new Set<() => void>();
+
+/** Force every image in the document to load again from disk. */
+export function reloadAllImages(): void {
+  reloadToken += 1;
+  for (const refresh of refreshers) refresh();
 }
 
 const imageNodeView: NodeViewConstructor = (node) => {
@@ -26,11 +40,18 @@ const imageNodeView: NodeViewConstructor = (node) => {
     current = target;
     const src = String(target.attrs.src ?? "");
     const resolved = resolveImageSrc(src);
-    if (img.getAttribute("src") !== resolved) img.src = resolved;
+    // A cache-busting query re-reads the file after "Reload All Images".
+    const next =
+      reloadToken > 0 && /^(asset:|https?:|file:)/i.test(resolved)
+        ? `${resolved}${resolved.includes("?") ? "&" : "?"}rypora=${reloadToken}`
+        : resolved;
+    if (img.getAttribute("src") !== next) img.src = next;
     img.alt = String(target.attrs.alt ?? "");
     const title = target.attrs.title;
     if (typeof title === "string" && title) img.title = title;
     else img.removeAttribute("title");
+    const zoom = Number(target.attrs.zoom ?? 0);
+    img.style.zoom = zoom > 0 && zoom !== 100 ? `${zoom}%` : "";
   };
 
   // Surface broken images instead of silently rendering an empty box.
@@ -45,12 +66,18 @@ const imageNodeView: NodeViewConstructor = (node) => {
 
   apply(node);
 
+  const refresh = () => apply(current);
+  refreshers.add(refresh);
+
   return {
     dom: img,
     update: (updated) => {
       if (updated.type !== node.type) return false;
       apply(updated);
       return true;
+    },
+    destroy: () => {
+      refreshers.delete(refresh);
     },
     ignoreMutation: () => true,
   };

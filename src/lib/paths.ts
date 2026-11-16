@@ -16,6 +16,15 @@ export function joinPath(dir: string, name: string): string {
   return dir.endsWith("/") || dir.endsWith("\\") ? `${dir}${name}` : `${dir}${sep}${name}`;
 }
 
+/** Shortest reference to `target`: relative when it sits under `baseDir`. */
+export function relativize(baseDir: string, target: string): string {
+  const base = baseDir.replace(/[\\/]+$/, "");
+  if (base && (target === base || target.startsWith(`${base}/`))) {
+    return target.slice(base.length).replace(/^\//, "");
+  }
+  return target;
+}
+
 export function relativePath(root: string, path: string): string {
   if (path.startsWith(root)) {
     return path.slice(root.length).replace(/^[\\/]/, "");
@@ -53,6 +62,7 @@ function isAbsoluteFsPath(src: string): boolean {
 export function resolveImageSource(
   src: string,
   baseDir: string | null,
+  imageRoot?: string | null,
 ): string {
   if (!src || REMOTE_SRC.test(src)) return src;
   try {
@@ -60,6 +70,11 @@ export function resolveImageSource(
       const raw = decodeURIComponent(src.replace(FILE_URL, ""));
       // Windows file URLs look like file:///C:/dir/a.png.
       return convertFileSrc(raw.replace(/^\/([a-zA-Z]:[\\/])/, "$1"));
+    }
+    // A leading `/` means "relative to the image root" when one is configured,
+    // matching Typora's Use Image Root Path option.
+    if (imageRoot && src.startsWith("/")) {
+      return convertFileSrc(joinPath(imageRoot, src.replace(/^\/+/, "")));
     }
     if (isAbsoluteFsPath(src)) return convertFileSrc(src);
     if (!baseDir) return src;

@@ -29,6 +29,7 @@ interface UiState {
   findReplacement: string;
   findResult: { index: number; total: number };
   settingsOpen: boolean;
+  quickOpen: boolean;
   outline: OutlineItem[];
   selection: SelectionInfo;
   status: string | null;
@@ -47,6 +48,7 @@ interface UiState {
   setFindReplacement: (value: string) => void;
   setFindResult: (value: { index: number; total: number }) => void;
   setSettingsOpen: (value: boolean) => void;
+  setQuickOpen: (value: boolean) => void;
   setOutline: (outline: OutlineItem[]) => void;
   setSelection: (selection: SelectionInfo) => void;
   flash: (message: string) => void;
@@ -68,6 +70,7 @@ export const useUi = create<UiState>((set, get) => ({
   findReplacement: "",
   findResult: { index: -1, total: 0 },
   settingsOpen: false,
+  quickOpen: false,
   outline: [],
   selection: { line: 1, column: 1, empty: true },
   status: null,
@@ -86,6 +89,7 @@ export const useUi = create<UiState>((set, get) => ({
   setFindReplacement: (value) => set({ findReplacement: value }),
   setFindResult: (value) => set({ findResult: value }),
   setSettingsOpen: (value) => set({ settingsOpen: value }),
+  setQuickOpen: (value) => set({ quickOpen: value }),
   setOutline: (outline) => set({ outline }),
   setSelection: (selection) => set({ selection }),
   flash: (message) => {

@@ -52,6 +52,36 @@ export function deletePath(path: string): Promise<void> {
   return invoke<void>("delete_path", { path });
 }
 
+export function readTextFile(path: string): Promise<string> {
+  return invoke<string>("read_text_file", { path });
+}
+
+export function copyImage(from: string, to: string): Promise<void> {
+  return invoke<void>("copy_image", { from, to });
+}
+
+export function moveImage(from: string, to: string): Promise<void> {
+  return invoke<void>("move_image", { from, to });
+}
+
+export function deleteFile(path: string): Promise<void> {
+  return invoke<void>("delete_file", { path });
+}
+
+/** Open another editor window, optionally with a file queued for it. */
+export function newWindow(path?: string | null): Promise<void> {
+  return invoke<void>("new_window", { path: path ?? null });
+}
+
+/** Keep the native **Open Recent** menu in sync with the settings list. */
+export function setRecentFiles(files: string[]): Promise<void> {
+  return invoke<void>("set_recent_files", { files });
+}
+
+export function focusAllWindows(): Promise<void> {
+  return invoke<void>("focus_all_windows");
+}
+
 export function pathExists(path: string): Promise<boolean> {
   return invoke<boolean>("path_exists", { path });
 }
@@ -107,8 +137,8 @@ export function onFsChanged(
 }
 
 /** Files passed by Finder, `open -a`, or the command line. */
-export function takePendingFiles(): Promise<string[]> {
-  return invoke<string[]>("take_pending_files");
+export function takePendingFiles(windowLabel: string): Promise<string[]> {
+  return invoke<string[]>("take_pending_files", { window: windowLabel });
 }
 
 export function copyText(text: string): Promise<void> {

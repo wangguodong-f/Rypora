@@ -9,6 +9,7 @@ import {
   Editor,
   defaultValueCtx,
   editorViewCtx,
+  remarkStringifyOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
 import { commonmark } from "@milkdown/kit/preset/commonmark";
@@ -31,6 +32,7 @@ import {
   linkRefRemark,
   linkRefSchema,
   normalizeEmptyFootnoteDefinitions,
+  richImageSchema,
   richRemark,
   subscriptSchema,
   superscriptSchema,
@@ -70,6 +72,7 @@ function selectionInfo(selection: Selection): SelectionInfo {
 interface EditorHostProps {
   tab: Tab;
   onChange: (markdown: string) => void;
+  onBaseline: (markdown: string) => void;
   onSelection: (info: SelectionInfo) => void;
   onOutline: (outline: OutlineItem[]) => void;
 }
@@ -77,15 +80,25 @@ interface EditorHostProps {
 function EditorHost({
   tab,
   onChange,
+  onBaseline,
   onSelection,
   onOutline,
 }: EditorHostProps) {
   const onChangeRef = useRef(onChange);
+  const onBaselineRef = useRef(onBaseline);
   const onSelectionRef = useRef(onSelection);
   const onOutlineRef = useRef(onOutline);
   onChangeRef.current = onChange;
+  onBaselineRef.current = onBaseline;
   onSelectionRef.current = onSelection;
   onOutlineRef.current = onOutline;
+
+  // The trailing plugin appends a paragraph right after the editor is created,
+  // which makes the listener report the canonical Markdown of a document the
+  // user has not touched yet. That first report becomes the baseline instead of
+  // an edit, so opening a file never marks it dirty or rewrites it.
+  const baselinePendingRef = useRef(true);
+  const mountedAtRef = useRef(Date.now());
 
   const spellcheck = useSettings((state) => state.spellcheck);
 
@@ -100,9 +113,24 @@ function EditorHost({
         // Typora uses `~x~` for subscript, so a single tilde must not start
         // GFM strikethrough. `~~x~~` still works.
         ctx.set(remarkGFMPlugin.options.key, { singleTilde: false });
+        // Typora writes `-` bullets and `---` rules; remark-stringify defaults
+        // to `*` and `***`, which would rewrite files the moment they open.
+        ctx.set(remarkStringifyOptionsCtx, {
+          ...ctx.get(remarkStringifyOptionsCtx),
+          bullet: "-",
+          rule: "-",
+        });
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown) => {
-            onChangeRef.current(normalizeEmptyFootnoteDefinitions(markdown));
+            const next = normalizeEmptyFootnoteDefinitions(markdown);
+            if (baselinePendingRef.current) {
+              baselinePendingRef.current = false;
+              if (Date.now() - mountedAtRef.current < 2000) {
+                onBaselineRef.current(next);
+                return;
+              }
+            }
+            onChangeRef.current(next);
           })
           .selectionUpdated((_ctx, selection) => {
             onSelectionRef.current(selectionInfo(selection));
@@ -140,6 +168,7 @@ function EditorHost({
       .use(alertSchema)
       .use(linkRefSchema)
       .use(linkDefinitionSchema)
+      .use(richImageSchema)
       .use(imageView)
       .use(mermaidPlugin)
       .use(imagePastePlugin)
@@ -183,6 +212,7 @@ function EditorHost({
 interface EditorPaneProps {
   tab: Tab;
   onChange: (markdown: string) => void;
+  onBaseline: (markdown: string) => void;
   onSelection: (info: SelectionInfo) => void;
   onOutline: (outline: OutlineItem[]) => void;
 }
