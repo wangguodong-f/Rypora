@@ -126,56 +126,68 @@ with `npx tauri icon app-icon.png`. The editable artwork is in `app-icon.svg`.
 
 ## Keyboard shortcuts
 
-`⌘` is `Ctrl` on Windows/Linux.
+`⌘` is `Ctrl` on Windows/Linux. The menu bar follows Typora's layout — **File / Edit /
+Paragraph / Format / View / Themes / Window** — and uses the same accelerators where the
+feature exists. Items that are not implemented yet stay in the menu but are greyed out.
 
-**Files**
+**File**
 
 | Action | Shortcut |
 | --- | --- |
-| New file | ⌘N |
-| Open file… | ⌘O |
-| Open folder… | ⌘⇧O |
+| New | ⌘N |
+| New tab | ⌘T |
+| Open… | ⌘O |
 | Save | ⌘S |
 | Save as… | ⌘⇧S |
-| Close tab | ⌘W |
+| Save all | ⌘⌥S |
+| Close | ⌘W |
+| Print / export PDF | ⌘P |
 | Quit | ⌘Q |
 
-**Editing**
+**Edit**
 
 | Action | Shortcut |
 | --- | --- |
 | Undo / Redo | ⌘Z / ⌘⇧Z |
+| Select all | ⌘A |
 | Find… | ⌘F |
 | Find & replace… | ⌘⌥F |
 | Settings… | ⌘, |
 
-**Formatting**
+**Paragraph**
+
+| Action | Shortcut |
+| --- | --- |
+| Heading 1–6 | ⌘1 … ⌘6 |
+| Paragraph | ⌘0 |
+| Quote | ⌘⌥Q |
+| Code block | ⌘⌥C |
+| Ordered list | ⌘⌥O |
+| Unordered list | ⌘⌥U |
+| Task list | ⌘⌥X |
+| Insert table | ⌘⌥T |
+| Horizontal line | ⌘⌥- |
+
+**Format**
 
 | Action | Shortcut |
 | --- | --- |
 | Bold | ⌘B |
 | Italic | ⌘I |
-| Strikethrough | ⌘⇧X |
-| Inline code | ⌘E |
+| Code | ⌃&#96; |
+| Strikethrough | ⌃⇧&#96; |
 | Link… | ⌘K |
-| Heading 1–6 | ⌘1 … ⌘6 |
-| Paragraph | ⌘0 |
-| Quote | ⌘⇧Q |
-| Code block | ⌘⇧K |
-| Bullet list | ⌘⇧8 |
-| Ordered list | ⌘⇧7 |
-| Task list | ⌘⇧9 |
-| Table | ⌘T |
-| Image… | ⌘⇧I |
+| Insert image… | ⌃⌘I |
 
 **View**
 
 | Action | Shortcut |
 | --- | --- |
 | Toggle sidebar | ⌘⇧L |
-| Toggle dark mode | ⌘⇧D |
-| Focus mode | ⌘⇧F |
-| Typewriter mode | ⌘⇧T |
+| Focus mode | F8 |
+| Typewriter mode | F9 |
+| Outline / documents / file tree | ⌃⌘1 / ⌃⌘2 / ⌃⌘3 |
+| Search | ⌘⇧F |
 
 The native menu bar exposes the same commands, plus window controls, full screen and a
 keyboard-shortcut reference under **Help**.

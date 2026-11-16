@@ -20,9 +20,10 @@ import {
   newTab,
   openFileDialog,
   openFolderDialog,
+  reloadTab,
   requestQuit,
   saveActive,
-  toggleTheme,
+  saveAll,
 } from "./lib/fileActions";
 import {
   isTauri,
@@ -35,164 +36,202 @@ import {
 import { samePath } from "./lib/paths";
 import { resolveTheme, useSettings } from "./stores/settings";
 import { useTabs } from "./stores/tabs";
-import { useUi, type SidebarTab } from "./stores/ui";
+import { useUi } from "./stores/ui";
 import { useWorkspace } from "./stores/workspace";
-import type { OutlineItem, SelectionInfo } from "./lib/types";
+import type { OutlineItem, SelectionInfo, ThemeMode } from "./lib/types";
 
 const SHORTCUTS = `文件
-  ⌘N          新建文件
-  ⌘O          打开文件
-  ⌘⇧O         打开文件夹
+  ⌘N          新建
+  ⌘T          新建标签页
+  ⌘O          打开
   ⌘S          保存
   ⌘⇧S         另存为
-  ⌘W          关闭标签页
+  ⌥⌘S         保存全部打开的文件
+  ⌘W          关闭
+  ⌘P          打印 / 导出 PDF
 
 编辑
-  ⌘Z / ⌘⇧Z    撤销 / 重做
+  ⌘Z / ⌘⇧Z    撤消 / 重做
+  ⌘X / ⌘C / ⌘V  剪切 / 复制 / 粘贴
+  ⌘A          全选
   ⌘F          查找
-  ⌘⌥F         查找与替换
-  ⌘,          设置
+  ⌥⌘F         查找和替换
+
+段落
+  ⌘1 … ⌘6     一至六级标题
+  ⌘0          段落
+  ⌥⌘O         有序列表
+  ⌥⌘U         无序列表
+  ⌥⌘X         任务列表
+  ⌥⌘Q         引用
+  ⌥⌘C         代码块
+  ⌥⌘T         插入表格
+  ⌥⌘-         水平分割线
 
 格式
-  ⌘B          粗体
+  ⌘B          加粗
   ⌘I          斜体
-  ⌘⇧X         删除线
-  ⌘E          行内代码
-  ⌘K          链接
-  ⌘1 … ⌘6     标题 1-6
-  ⌘0          正文
-  ⌘⇧Q         引用
-  ⌘⇧K         代码块
-  ⌘T          表格
+  ⌃\`          代码
+  ⌃⇧\`         删除线
+  ⌘K          超链接
+  ⌃⌘I         插入图片
 
-视图
-  ⌘⇧L         切换侧边栏
-  ⌘⇧D         切换深色模式
-  ⌘⇧F         专注模式
-  ⌘⇧T         打字机模式`;
+显示
+  F8          专注模式
+  F9          打字机模式
+  ⌘⇧L         显示／隐藏侧边栏
+  ⌃⌘1 / ⌃⌘2 / ⌃⌘3  大纲 / 文档列表 / 文件树
+  ⌘⇧F         搜索`;
 
 function applyMenuAction(action: string): void {
   const ui = useUi.getState();
   const tabs = useTabs.getState();
   const activeId = tabs.activeId;
 
+  const heading = /^para\.heading\.([1-6])$/.exec(action);
+  if (heading) {
+    runCommand("setHeading", Number(heading[1]));
+    return;
+  }
+
+  const theme = /^theme\.(auto|light|dark)$/.exec(action);
+  if (theme) {
+    useSettings.getState().update({ theme: theme[1] as ThemeMode });
+    return;
+  }
+
   switch (action) {
-    case "new-file":
+    case "file.new":
+    case "file.new-tab":
       newTab();
       return;
-    case "open-file":
+    case "file.open":
       void openFileDialog();
       return;
-    case "open-folder":
+    case "file.open-folder":
       void openFolderDialog();
       return;
-    case "save":
-      void saveActive();
-      return;
-    case "save-as":
-      void saveActive({ saveAs: true });
-      return;
-    case "close-tab":
+    case "file.close":
       if (activeId) void closeTabWithConfirm(activeId);
       return;
-    case "export-html":
+    case "file.save":
+      void saveActive();
+      return;
+    case "file.save-as":
+      void saveActive({ saveAs: true });
+      return;
+    case "file.save-all":
+      void saveAll();
+      return;
+    case "file.revert":
+      if (activeId) void reloadTab(activeId);
+      return;
+    case "file.export.html":
       void exportHtml();
       return;
-    case "export-pdf":
+    case "file.export.pdf":
+    case "file.print":
       void exportPdf();
       return;
-    case "quit":
-      void requestQuit();
-      return;
-    case "undo":
+
+    case "edit.undo":
       runCommand("undo");
       return;
-    case "redo":
+    case "edit.redo":
       runCommand("redo");
       return;
-    case "bold":
+    case "edit.select.all":
+      runCommand("selectAll");
+      return;
+    case "edit.math.refresh":
+      runCommand("refresh");
+      return;
+    case "edit.find.find":
+    case "edit.find.replace":
+      ui.setFindOpen(true);
+      return;
+
+    case "para.paragraph":
+      runCommand("setParagraph");
+      return;
+    case "para.quote":
+      runCommand("toggleQuote");
+      return;
+    case "para.code-block":
+      runCommand("insertCodeBlock");
+      return;
+    case "para.list.ordered":
+      runCommand("toggleOrderedList");
+      return;
+    case "para.list.unordered":
+      runCommand("toggleBulletList");
+      return;
+    case "para.list.task":
+      runCommand("toggleTaskList");
+      return;
+    case "para.table.insert":
+      runCommand("insertTable");
+      return;
+    case "para.hr":
+      runCommand("insertHr");
+      return;
+
+    case "fmt.strong":
       runCommand("toggleBold");
       return;
-    case "italic":
+    case "fmt.emphasis":
       runCommand("toggleItalic");
       return;
-    case "strikethrough":
-      runCommand("toggleStrike");
-      return;
-    case "inline-code":
+    case "fmt.code":
       runCommand("toggleInlineCode");
       return;
-    case "link":
+    case "fmt.strike":
+      runCommand("toggleStrike");
+      return;
+    case "fmt.hyperlink":
       void ui.prompt("链接地址", "https://").then((href) => {
         if (href) runCommand("toggleLink", href);
       });
       return;
-    case "heading-1":
-    case "heading-2":
-    case "heading-3":
-    case "heading-4":
-    case "heading-5":
-    case "heading-6":
-      runCommand("setHeading", Number(action.slice(-1)));
-      return;
-    case "paragraph":
-      runCommand("setParagraph");
-      return;
-    case "quote":
-      runCommand("toggleQuote");
-      return;
-    case "code-block":
-      runCommand("insertCodeBlock");
-      return;
-    case "bullet-list":
-      runCommand("toggleBulletList");
-      return;
-    case "ordered-list":
-      runCommand("toggleOrderedList");
-      return;
-    case "task-list":
-      runCommand("toggleTaskList");
-      return;
-    case "table":
-      runCommand("insertTable");
-      return;
-    case "horizontal-rule":
-      runCommand("insertHr");
-      return;
-    case "image":
+    case "fmt.image.insert":
+    case "fmt.image.insert-local":
       void insertImageDialog();
       return;
-    case "toggle-sidebar":
-      ui.toggleSidebar();
-      return;
-    case "panel-files":
-    case "panel-outline":
-    case "panel-search":
-      ui.setSidebarTab(action.replace("panel-", "") as SidebarTab);
-      return;
-    case "toggle-theme":
-      toggleTheme();
-      return;
-    case "focus-mode":
+
+    case "view.focus-mode":
       ui.setFocusMode(!ui.focusMode);
       return;
-    case "typewriter-mode":
+    case "view.typewriter-mode":
       ui.setTypewriterMode(!ui.typewriterMode);
       return;
-    case "find":
-    case "replace":
-      ui.setFindOpen(true);
+    case "view.sidebar":
+      ui.toggleSidebar();
       return;
-    case "preferences":
+    case "view.panel.outline":
+      ui.setSidebarTab("outline");
+      return;
+    case "view.panel.articles":
+    case "view.panel.files":
+      ui.setSidebarTab("files");
+      return;
+    case "view.panel.search":
+      ui.setSidebarTab("search");
+      return;
+
+    case "app.preferences":
       ui.setSettingsOpen(true);
       return;
-    case "about":
+    case "app.quit":
+      void requestQuit();
+      return;
+    case "app.about":
+    case "help.about":
       void message(
         "Rypora 0.1.0\n\n使用 Tauri、React 与 Milkdown 构建的所见即所得 Markdown 编辑器。",
         { title: "关于 Rypora" },
       );
       return;
-    case "shortcuts":
+    case "help.shortcuts":
       void message(SHORTCUTS, { title: "键盘快捷键" });
       return;
     default:

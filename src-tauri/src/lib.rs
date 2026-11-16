@@ -65,6 +65,9 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle();
             let menu = menu::build_menu(handle)?;
+            if std::env::var_os("RYPORA_DUMP_MENU").is_some() {
+                menu::dump(&menu);
+            }
             app.set_menu(menu)?;
             app.on_menu_event(|app, event| {
                 let _ = app.emit("menu://action", event.id().0.clone());

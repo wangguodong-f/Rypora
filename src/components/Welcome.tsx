@@ -26,8 +26,8 @@ export function Welcome() {
         <div className="welcome-actions">
           <button className="welcome-card" onClick={() => newTab()}>
             <IconPlus size={20} />
-            <span>新建文件</span>
-            <kbd>⌘N</kbd>
+            <span>新建标签页</span>
+            <kbd>⌘T</kbd>
           </button>
           <button
             className="welcome-card"
@@ -43,7 +43,7 @@ export function Welcome() {
           >
             <IconFolder size={20} />
             <span>打开文件夹</span>
-            <kbd>⌘⇧O</kbd>
+            <kbd>—</kbd>
           </button>
         </div>
 

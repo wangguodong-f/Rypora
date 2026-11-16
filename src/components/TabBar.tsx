@@ -41,7 +41,7 @@ export function TabBar() {
           </div>
         ))}
       </div>
-      <button className="tab-new" title="新建文件 (⌘N)" onClick={() => newTab()}>
+      <button className="tab-new" title="新建标签页 (⌘T)" onClick={() => newTab()}>
         <IconPlus size={15} />
       </button>
     </div>

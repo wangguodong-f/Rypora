@@ -46,14 +46,14 @@ export function TitleBar() {
         </button>
         <button
           className={`icon-button${focusMode ? " active" : ""}`}
-          title="专注模式 (⌘⇧F)"
+          title="专注模式 (F8)"
           onClick={() => setFocusMode(!focusMode)}
         >
           <IconFocus size={16} />
         </button>
         <button
           className="icon-button"
-          title="切换深色模式 (⌘⇧D)"
+          title="切换深色模式"
           onClick={toggleTheme}
         >
           {dark ? <IconSun size={16} /> : <IconMoon size={16} />}
