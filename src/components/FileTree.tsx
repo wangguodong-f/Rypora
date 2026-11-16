@@ -145,6 +145,7 @@ export function FileTree() {
             openable ? "" : " muted"
           }`}
           style={{ paddingLeft: 8 + depth * 14 }}
+          data-path={node.path}
           onClick={() => {
             if (node.isDir) toggleExpanded(node.path);
             else if (openable) void useTabs.getState().openPath(node.path);

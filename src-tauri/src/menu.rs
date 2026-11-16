@@ -69,10 +69,10 @@ fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             Some("CmdOrCtrl+Shift+O"),
         )?)
         .separator()
-        .item(&dim(app, "file.info", "显示简介…", None)?)
+        .item(&it(app, "file.info", "显示简介…", None)?)
         .item(&dim(app, "file.reveal-library", "在文档列表中显示", None)?)
-        .item(&dim(app, "file.reveal-tree", "在文件树中显示", None)?)
-        .item(&dim(app, "file.reveal-finder", "打开文件位置", None)?)
+        .item(&it(app, "file.reveal-tree", "在文件树中显示", None)?)
+        .item(&it(app, "file.reveal-finder", "打开文件位置", None)?)
         .separator()
         .item(&dim(app, "file.delete", "删除…", None)?)
         .separator()
@@ -109,57 +109,57 @@ fn file_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
 fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let selection = SubmenuBuilder::new(app, "选择")
         .item(&it(app, "edit.select.all", "全选", Some("CmdOrCtrl+A"))?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.block",
             "选择段落或块",
             Some("CmdOrCtrl+Alt+P"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.line",
             "选中当前行或句",
             Some("CmdOrCtrl+L"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.scope",
             "选中当前格式文本",
             Some("CmdOrCtrl+E"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.word",
             "选中当前词",
             Some("CmdOrCtrl+D"),
         )?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.jump-top",
             "跳转到文首",
             Some("CmdOrCtrl+ArrowUp"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.jump-selection",
             "跳转到所选内容",
             Some("CmdOrCtrl+J"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.jump-bottom",
             "跳转到文末",
             Some("CmdOrCtrl+ArrowDown"),
         )?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.jump-line-start",
             "跳转到行首",
             Some("Control+A"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.select.jump-line-end",
             "跳转到行尾",
@@ -168,25 +168,25 @@ fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .build()?;
 
     let delete_range = SubmenuBuilder::new(app, "删除范围")
-        .item(&dim(
+        .item(&it(
             app,
             "edit.delete.block",
             "删除块",
             Some("CmdOrCtrl+Alt+Shift+P"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.delete.line",
             "删除当前行或句",
             Some("CmdOrCtrl+Alt+Shift+L"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.delete.scope",
             "删除当前格式文本",
             Some("CmdOrCtrl+Alt+Shift+E"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.delete.word",
             "删除当前词",
@@ -308,13 +308,13 @@ fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
 
     let find = SubmenuBuilder::new(app, "查找")
         .item(&it(app, "edit.find.find", "查找…", Some("CmdOrCtrl+F"))?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.find.next",
             "查找下一个",
             Some("CmdOrCtrl+G"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.find.previous",
             "查找上一个",
@@ -327,14 +327,14 @@ fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             "查找和替换…",
             Some("CmdOrCtrl+Alt+F"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.find.replace-next",
             "替换下一个",
             Some("CmdOrCtrl+Alt+E"),
         )?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "edit.find.jump-selection",
             "跳转到所选内容",
@@ -355,28 +355,28 @@ fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&PredefinedMenuItem::copy(app, Some("复制"))?)
         .item(&PredefinedMenuItem::paste(app, Some("粘贴"))?)
         .separator()
-        .item(&dim(app, "edit.copy.plain", "复制为纯文本", None)?)
-        .item(&dim(
+        .item(&it(app, "edit.copy.plain", "复制为纯文本", None)?)
+        .item(&it(
             app,
             "edit.copy.markdown",
             "复制为 Markdown",
             Some("CmdOrCtrl+Shift+C"),
         )?)
-        .item(&dim(app, "edit.copy.html", "复制为 HTML 代码", None)?)
-        .item(&dim(
+        .item(&it(app, "edit.copy.html", "复制为 HTML 代码", None)?)
+        .item(&it(
             app,
             "edit.copy.simplified",
             "复制内容并简化格式",
             None,
         )?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "edit.paste.plain",
             "粘贴为纯文本",
             Some("CmdOrCtrl+Shift+V"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.paste.match-style",
             "粘贴并匹配样式",
@@ -384,20 +384,20 @@ fn edit_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         )?)
         .separator()
         .item(&selection)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.move-row-up",
             "上移该行",
             Some("Alt+ArrowUp"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "edit.move-row-down",
             "下移该行",
             Some("Alt+ArrowDown"),
         )?)
         .separator()
-        .item(&dim(app, "edit.delete", "删除", None)?)
+        .item(&it(app, "edit.delete", "删除", None)?)
         .item(&delete_range)
         .separator()
         .item(&math_tools)
@@ -415,58 +415,58 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let table = SubmenuBuilder::new(app, "表格")
         .item(&it(app, "para.table.insert", "插入表格", Some("CmdOrCtrl+Alt+T"))?)
         .separator()
-        .item(&dim(app, "para.table.row-above", "上方插入行", None)?)
-        .item(&dim(
+        .item(&it(app, "para.table.row-above", "上方插入行", None)?)
+        .item(&it(
             app,
             "para.table.row-below",
             "下方插入行",
             Some("CmdOrCtrl+Enter"),
         )?)
         .separator()
-        .item(&dim(app, "para.table.col-before", "左侧插入列", None)?)
-        .item(&dim(app, "para.table.col-after", "右侧插入列", None)?)
+        .item(&it(app, "para.table.col-before", "左侧插入列", None)?)
+        .item(&it(app, "para.table.col-after", "右侧插入列", None)?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "para.table.row-up",
             "向上移动表格行",
             Some("Control+CmdOrCtrl+ArrowUp"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "para.table.row-down",
             "向下移动表格行",
             Some("Control+CmdOrCtrl+ArrowDown"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "para.table.col-left",
             "向左移动表格列",
             Some("Control+CmdOrCtrl+ArrowLeft"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "para.table.col-right",
             "向右移动表格列",
             Some("Control+CmdOrCtrl+ArrowRight"),
         )?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "para.table.delete-row",
             "删除行",
             Some("CmdOrCtrl+Shift+Backspace"),
         )?)
-        .item(&dim(app, "para.table.delete-column", "删除列", None)?)
+        .item(&it(app, "para.table.delete-column", "删除列", None)?)
         .separator()
-        .item(&dim(app, "para.table.copy", "复制表格", None)?)
+        .item(&it(app, "para.table.copy", "复制表格", None)?)
         .item(&dim(app, "para.table.prettify", "格式化表格源码", None)?)
         .separator()
-        .item(&dim(app, "para.table.delete", "删除表格", None)?)
+        .item(&it(app, "para.table.delete", "删除表格", None)?)
         .build()?;
 
     let code_tools = SubmenuBuilder::new(app, "代码工具")
-        .item(&dim(app, "para.code.copy", "复制代码块内容", None)?)
+        .item(&it(app, "para.code.copy", "复制代码块内容", None)?)
         .item(&dim(
             app,
             "para.code.indent-selection",
@@ -490,25 +490,25 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .build()?;
 
     let task_status = SubmenuBuilder::new(app, "任务状态")
-        .item(&dim(
+        .item(&it(
             app,
             "para.task.toggle",
             "切换任务状态",
             Some("Control+X"),
         )?)
         .separator()
-        .item(&dim(app, "para.task.complete", "标记为已完成", None)?)
-        .item(&dim(app, "para.task.incomplete", "标记为未完成", None)?)
+        .item(&it(app, "para.task.complete", "标记为已完成", None)?)
+        .item(&it(app, "para.task.incomplete", "标记为未完成", None)?)
         .build()?;
 
     let list_indent = SubmenuBuilder::new(app, "列表缩进")
-        .item(&dim(
+        .item(&it(
             app,
             "para.list.indent",
             "增加缩进",
             Some("CmdOrCtrl+]"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "para.list.outdent",
             "减少缩进",
@@ -526,13 +526,13 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .separator()
         .item(&it(app, "para.paragraph", "段落", Some("CmdOrCtrl+0"))?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "para.heading.increase",
             "提升标题级别",
             Some("CmdOrCtrl+="),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "para.heading.decrease",
             "降低标题级别",
@@ -540,7 +540,7 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         )?)
         .separator()
         .item(&table)
-        .item(&dim(
+        .item(&it(
             app,
             "para.math-block",
             "公式块",
@@ -578,13 +578,13 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&task_status)
         .item(&list_indent)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "para.insert-before",
             "在上方插入段落",
             None,
         )?)
-        .item(&dim(app, "para.insert-after", "在下方插入段落", None)?)
+        .item(&it(app, "para.insert-after", "在下方插入段落", None)?)
         .separator()
         .item(&dim(
             app,
@@ -612,8 +612,8 @@ fn paragraph_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
 
 fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
     let link_actions = SubmenuBuilder::new(app, "链接操作")
-        .item(&dim(app, "fmt.link.open", "打开链接", None)?)
-        .item(&dim(app, "fmt.link.copy", "复制链接地址", None)?)
+        .item(&it(app, "fmt.link.open", "打开链接", None)?)
+        .item(&it(app, "fmt.link.copy", "复制链接地址", None)?)
         .build()?;
 
     let zoom = SubmenuBuilder::new(app, "缩放图片")
@@ -658,7 +658,7 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             None,
         )?)
         .separator()
-        .item(&dim(app, "fmt.image.reveal", "打开图片位置", None)?)
+        .item(&it(app, "fmt.image.reveal", "打开图片位置", None)?)
         .item(&zoom)
         .item(&syntax)
         .separator()
@@ -701,7 +701,7 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&dim(app, "fmt.underline", "下划线", Some("CmdOrCtrl+U"))?)
         .item(&it(app, "fmt.code", "代码", Some("Control+Backquote"))?)
         .separator()
-        .item(&dim(app, "fmt.math-inline", "内联公式", Some("Control+M"))?)
+        .item(&it(app, "fmt.math-inline", "内联公式", Some("Control+M"))?)
         .item(&it(
             app,
             "fmt.strike",
@@ -718,7 +718,7 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .item(&image)
         .item(&dim(app, "fmt.take-picture", "拍照", None)?)
         .separator()
-        .item(&dim(
+        .item(&it(
             app,
             "fmt.clear",
             "清除样式",
@@ -770,30 +770,30 @@ fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
             Some("CmdOrCtrl+Shift+F"),
         )?)
         .separator()
-        .item(&dim(app, "view.word-count", "字数统计窗口", None)?)
-        .item(&dim(app, "view.outline-popover", "大纲窗口", None)?)
+        .item(&it(app, "view.word-count", "字数统计窗口", None)?)
+        .item(&it(app, "view.outline-popover", "大纲窗口", None)?)
         .separator()
         .item(&dim(app, "view.magnification", "双指缩放", None)?)
-        .item(&dim(
+        .item(&it(
             app,
             "view.actual-size",
             "实际大小",
             Some("CmdOrCtrl+Shift+0"),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "view.zoom-in",
             "放大",
             Some("CmdOrCtrl+Shift+="),
         )?)
-        .item(&dim(
+        .item(&it(
             app,
             "view.zoom-out",
             "缩小",
             Some("CmdOrCtrl+Shift+-"),
         )?)
         .separator()
-        .item(&dim(app, "view.always-on-top", "保持窗口在最前端", None)?)
+        .item(&it(app, "view.always-on-top", "保持窗口在最前端", None)?)
         .item(&PredefinedMenuItem::fullscreen(app, Some("全屏"))?)
         .build()
 }

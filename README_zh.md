@@ -143,8 +143,18 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。菜单栏与 Typora 一致，为 **文
 | --- | --- |
 | 撤消 / 重做 | ⌘Z / ⌘⇧Z |
 | 全选 | ⌘A |
+| 选择段落 / 行 / 词 | ⌘⌥P / ⌘L / ⌘D |
+| 选中当前格式文本 | ⌘E |
+| 跳转到文首 / 文末 | ⌃⌘↑ / ⌃⌘↓ |
+| 跳转到行首 / 行尾 | ⌃A / ⌃E |
+| 上移 / 下移该行 | ⌥↑ / ⌥↓ |
+| 复制为 Markdown | ⌘⇧C |
+| 粘贴为纯文本 | ⌘⇧V |
+| 粘贴并匹配样式 | ⌥⌘⇧V |
 | 查找… | ⌘F |
+| 查找下一个 / 上一个 | ⌘G / ⌘⇧G |
 | 查找和替换… | ⌘⌥F |
+| 替换下一个 | ⌥⌘E |
 | 设置… | ⌘, |
 
 **段落**
@@ -169,8 +179,10 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。菜单栏与 Typora 一致，为 **文
 | 斜体 | ⌘I |
 | 代码 | ⌃&#96; |
 | 删除线 | ⌃⇧&#96; |
+| 内联公式 | ⌃M |
 | 链接… | ⌘K |
 | 插入图片… | ⌃⌘I |
+| 清除样式 | ⌘\ |
 
 **显示**
 
@@ -181,6 +193,8 @@ Windows / Linux 上 `⌘` 对应 `Ctrl`。菜单栏与 Typora 一致，为 **文
 | 打字机模式 | F9 |
 | 大纲 / 文档列表 / 文件树 | ⌃⌘1 / ⌃⌘2 / ⌃⌘3 |
 | 搜索 | ⌘⇧F |
+| 实际大小 | ⌘⇧0 |
+| 放大 / 缩小 | ⌘⇧= / ⌘⇧- |
 
 原生菜单栏提供同样的命令，另有窗口控制、全屏，以及 **帮助** 下的键盘快捷键一览。
 
@@ -203,13 +217,14 @@ src/                      React 前端
     highlight.ts          共享的 Prism / refractor 配置
     focus.ts              专注模式与打字机模式
     commands.ts           格式化命令与大纲提取
-  lib/                    IPC 封装、文件操作、导出、路径工具、自测
+  lib/                    IPC 封装、文件操作、导出、路径、剪贴板、自测
   stores/                 Zustand 状态：tabs、workspace、ui、settings
   styles/index.css        应用样式与打印样式
 src-tauri/                Rust 后端
   src/lib.rs              Builder、插件、窗口 / 菜单事件、待打开文件
   src/commands/fs.rs      读写、目录树、重命名 / 删除、图片
   src/commands/search.rs  工作区搜索
+  src/commands/platform.rs 剪贴板、访达定位、外部链接
   src/menu.rs             原生中文菜单栏
   src/watcher.rs          基于 `notify` 的递归文件监听
   src/error.rs            可序列化的错误类型

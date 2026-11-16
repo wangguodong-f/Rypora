@@ -61,6 +61,10 @@ pub fn run() {
             watcher::watch_workspace,
             watcher::unwatch_workspace,
             take_pending_files,
+            commands::platform::copy_text,
+            commands::platform::read_clipboard,
+            commands::platform::reveal_path,
+            commands::platform::open_url,
         ])
         .setup(|app| {
             let handle = app.handle();

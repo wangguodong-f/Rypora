@@ -12,13 +12,13 @@ import {
 export function FindBar() {
   const open = useUi((state) => state.findOpen);
   const setOpen = useUi((state) => state.setFindOpen);
-  const [query, setQuery] = useState("");
-  const [replacement, setReplacement] = useState("");
+  const query = useUi((state) => state.findQuery);
+  const setQuery = useUi((state) => state.setFindQuery);
+  const replacement = useUi((state) => state.findReplacement);
+  const setReplacement = useUi((state) => state.setFindReplacement);
+  const result = useUi((state) => state.findResult);
+  const setResult = useUi((state) => state.setFindResult);
   const [showReplace, setShowReplace] = useState(false);
-  const [result, setResult] = useState<{ index: number; total: number }>({
-    index: -1,
-    total: 0,
-  });
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {

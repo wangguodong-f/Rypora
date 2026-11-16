@@ -33,7 +33,13 @@ import {
   openFile,
   takePendingFiles,
 } from "./lib/ipc";
-import { samePath } from "./lib/paths";
+import { samePath, dirname, joinPath } from "./lib/paths";
+import {
+  openUrl,
+  readClipboardText,
+  revealPath,
+  writeClipboard,
+} from "./lib/clipboard";
 import { resolveTheme, useSettings } from "./stores/settings";
 import { useTabs } from "./stores/tabs";
 import { useUi } from "./stores/ui";
@@ -83,6 +89,191 @@ const SHORTCUTS = `文件
   ⌃⌘1 / ⌃⌘2 / ⌃⌘3  大纲 / 文档列表 / 文件树
   ⌘⇧F         搜索`;
 
+const ZOOM_STEPS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
+const DEFAULT_ZOOM = 4;
+
+let zoomLevel = 1;
+let alwaysOnTop = false;
+
+function applyZoom(next: number): void {
+  zoomLevel = Math.min(3, Math.max(0.5, Math.round(next * 100) / 100));
+  if (!isTauri()) {
+    document.documentElement.style.zoom = String(zoomLevel);
+    return;
+  }
+  void getCurrentWebview()
+    .setZoom(zoomLevel)
+    .catch(() => undefined);
+}
+
+function stepZoom(direction: -1 | 1): void {
+  const current = ZOOM_STEPS.reduce(
+    (best, step, index) =>
+      Math.abs(step - zoomLevel) < Math.abs(ZOOM_STEPS[best] - zoomLevel)
+        ? index
+        : best,
+    DEFAULT_ZOOM,
+  );
+  const target = Math.min(
+    ZOOM_STEPS.length - 1,
+    Math.max(0, current + direction),
+  );
+  applyZoom(ZOOM_STEPS[target]);
+}
+
+function toggleAlwaysOnTop(): void {
+  alwaysOnTop = !alwaysOnTop;
+  const ui = useUi.getState();
+  ui.flash(alwaysOnTop ? "窗口已置顶" : "已取消置顶");
+  if (!isTauri()) return;
+  void getCurrentWindow()
+    .setAlwaysOnTop(alwaysOnTop)
+    .catch(() => ui.flash("无法设置窗口置顶"));
+}
+
+function copyFromEditor(text: string | null | undefined, label: string): void {
+  if (!text) {
+    useUi.getState().flash("没有可复制的内容");
+    return;
+  }
+  void writeClipboard(text).then((ok) => {
+    useUi.getState().flash(ok ? `已复制${label}` : "复制失败");
+  });
+}
+
+function pastePlainText(): void {
+  void readClipboardText().then((text) => {
+    if (text === null) {
+      useUi.getState().flash("无法读取剪贴板");
+      return;
+    }
+    if (!text) {
+      useUi.getState().flash("剪贴板为空");
+      return;
+    }
+    if (runCommand("pasteText", text) === false) {
+      useUi.getState().flash("请在编辑器中放置光标后粘贴");
+    }
+  });
+}
+
+/** Absolute file system path for an image source in the active document. */
+function absoluteImagePath(src: string | null | undefined): string | null {
+  if (!src) return null;
+  if (/^(https?:|data:|blob:|asset:|tauri:)/i.test(src)) return null;
+  let raw = src;
+  if (/^file:\/\//i.test(raw)) {
+    try {
+      raw = decodeURIComponent(raw.replace(/^file:\/\//i, ""));
+    } catch {
+      return null;
+    }
+  }
+  if (raw.startsWith("/") || /^[a-zA-Z]:[\\/]/.test(raw)) return raw;
+  const tabs = useTabs.getState();
+  const tab = tabs.tabs.find((item) => item.id === tabs.activeId);
+  if (!tab?.path) return null;
+  return joinPath(dirname(tab.path), raw);
+}
+
+function activeTabInfo() {
+  const tabs = useTabs.getState();
+  return tabs.tabs.find((item) => item.id === tabs.activeId);
+}
+
+/** Expand the file tree down to the active document and scroll it into view. */
+function revealInTree(): void {
+  const ui = useUi.getState();
+  const workspace = useWorkspace.getState();
+  const tab = activeTabInfo();
+  if (!tab?.path) {
+    ui.flash("该文件尚未保存到磁盘");
+    return;
+  }
+  const root = workspace.root;
+  if (!root) {
+    ui.setSidebarTab("files");
+    ui.flash("请先打开一个文件夹");
+    return;
+  }
+  const normalized = tab.path.replace(/\\/g, "/");
+  let base = root.replace(/\\/g, "/");
+  // macOS may report /private/var for a root that was opened as /var.
+  if (!normalized.startsWith(`${base}/`) && !normalized.startsWith(base)) {
+    if (base.startsWith("/private")) base = base.slice("/private".length);
+    else base = `/private${base}`;
+  }
+  if (!normalized.startsWith(`${base}/`) && normalized !== base) {
+    ui.setSidebarTab("files");
+    ui.flash("当前文件不在已打开的文件夹中");
+    return;
+  }
+  const parts = normalized.slice(base.length).split("/").filter(Boolean);
+  let current = base;
+  for (let i = 0; i < parts.length - 1; i += 1) {
+    current = `${current}/${parts[i]}`;
+    workspace.expand(current);
+  }
+  ui.setSidebarTab("files");
+  window.setTimeout(() => {
+    const row = document.querySelector(
+      `[data-path="${CSS.escape(tab.path!)}"]`,
+    );
+    row?.scrollIntoView({ block: "nearest" });
+  }, 80);
+}
+
+function findInEditor(backwards: boolean): void {
+  const ui = useUi.getState();
+  const query = ui.findQuery;
+  if (!query) {
+    ui.setFindOpen(true);
+    return;
+  }
+  const found = runCommand("find", query, backwards);
+  if (found) ui.setFindResult(found);
+}
+
+function showWordCount(): void {
+  const counts = runCommand("wordCount") ?? {
+    characters: 0,
+    words: 0,
+    lines: 0,
+  };
+  const selection = useUi.getState().selection;
+  void message(
+    `字数 ${counts.words}\n字符 ${counts.characters}\n行数 ${counts.lines}\n\n光标位于第 ${selection.line} 行第 ${selection.column} 列`,
+    { title: "字数统计" },
+  );
+}
+
+function showOutlinePopover(): void {
+  const outline = useUi.getState().outline;
+  if (!outline.length) {
+    void message("当前文档没有标题。", { title: "大纲" });
+    return;
+  }
+  const text = outline
+    .map((item) => `${"  ".repeat(Math.max(0, item.level - 1))}${item.text}`)
+    .join("\n");
+  void message(text, { title: "大纲" });
+}
+
+function showFileInfo(): void {
+  const tab = activeTabInfo();
+  if (!tab) {
+    void message("没有打开的文件。", { title: "显示简介" });
+    return;
+  }
+  const modified = tab.mtime
+    ? new Date(tab.mtime).toLocaleString()
+    : "未保存";
+  void message(
+    `标题：${tab.title}\n位置：${tab.path ?? "尚未保存到磁盘"}\n修改时间：${modified}\n状态：${tab.dirty ? "有未保存的修改" : "已保存"}`,
+    { title: "显示简介" },
+  );
+}
+
 function applyMenuAction(action: string): void {
   const ui = useUi.getState();
   const tabs = useTabs.getState();
@@ -126,6 +317,21 @@ function applyMenuAction(action: string): void {
     case "file.revert":
       if (activeId) void reloadTab(activeId);
       return;
+    case "file.info":
+      showFileInfo();
+      return;
+    case "file.reveal-tree":
+      revealInTree();
+      return;
+    case "file.reveal-finder": {
+      const tab = activeTabInfo();
+      if (!tab?.path) {
+        ui.flash("该文件尚未保存到磁盘");
+        return;
+      }
+      void revealPath(tab.path).catch(() => ui.flash("无法在访达中显示该文件"));
+      return;
+    }
     case "file.export.html":
       void exportHtml();
       return;
@@ -147,18 +353,114 @@ function applyMenuAction(action: string): void {
       runCommand("refresh");
       return;
     case "edit.find.find":
+      ui.setFindOpen(true);
+      return;
     case "edit.find.replace":
       ui.setFindOpen(true);
       return;
+    case "edit.find.next":
+      findInEditor(false);
+      return;
+    case "edit.find.previous":
+      findInEditor(true);
+      return;
+    case "edit.find.replace-next": {
+      const replaced = runCommand("replaceCurrent", ui.findQuery, ui.findReplacement);
+      if (replaced) ui.setFindResult(replaced);
+      return;
+    }
+    case "edit.find.jump-selection":
+      runCommand("jump", "selection");
+      return;
+    case "edit.copy.plain":
+      copyFromEditor(runCommand("selectionText"), "为纯文本");
+      return;
+    case "edit.copy.simplified":
+      copyFromEditor(runCommand("selectionHtml"), "为简化格式");
+      return;
+    case "edit.copy.markdown":
+      copyFromEditor(runCommand("selectionMarkdown"), "为 Markdown");
+      return;
+    case "edit.copy.html":
+      copyFromEditor(runCommand("selectionHtml"), "为 HTML");
+      return;
+    case "edit.paste.plain":
+    case "edit.paste.match-style":
+      pastePlainText();
+      return;
+    case "edit.select.block":
+      runCommand("select", "block");
+      return;
+    case "edit.select.line":
+      runCommand("select", "line");
+      return;
+    case "edit.select.scope":
+      runCommand("select", "scope");
+      return;
+    case "edit.select.word":
+      runCommand("select", "word");
+      return;
+    case "edit.select.jump-top":
+      runCommand("jump", "top");
+      return;
+    case "edit.select.jump-bottom":
+      runCommand("jump", "bottom");
+      return;
+    case "edit.select.jump-selection":
+      runCommand("jump", "selection");
+      return;
+    case "edit.select.jump-line-start":
+      runCommand("jump", "line-start");
+      return;
+    case "edit.select.jump-line-end":
+      runCommand("jump", "line-end");
+      return;
+    case "edit.move-row-up":
+      runCommand("moveBlock", -1);
+      return;
+    case "edit.move-row-down":
+      runCommand("moveBlock", 1);
+      return;
+    case "edit.delete":
+    case "edit.delete.word":
+    case "edit.delete.scope":
+    case "edit.delete.line":
+    case "edit.delete.block": {
+      const mode =
+        action === "edit.delete.word"
+          ? "word"
+          : action === "edit.delete.scope"
+            ? "scope"
+            : action === "edit.delete.line"
+              ? "line"
+              : action === "edit.delete.block"
+                ? "block"
+                : null;
+      if (mode) {
+        runCommand("deleteRange", mode);
+      } else {
+        runCommand("deleteSelection");
+      }
+      return;
+    }
 
     case "para.paragraph":
       runCommand("setParagraph");
+      return;
+    case "para.heading.increase":
+      runCommand("changeHeading", -1);
+      return;
+    case "para.heading.decrease":
+      runCommand("changeHeading", 1);
       return;
     case "para.quote":
       runCommand("toggleQuote");
       return;
     case "para.code-block":
       runCommand("insertCodeBlock");
+      return;
+    case "para.code.copy":
+      copyFromEditor(runCommand("codeBlockText"), "代码块内容");
       return;
     case "para.list.ordered":
       runCommand("toggleOrderedList");
@@ -169,8 +471,71 @@ function applyMenuAction(action: string): void {
     case "para.list.task":
       runCommand("toggleTaskList");
       return;
+    case "para.list.indent":
+      runCommand("indentList");
+      return;
+    case "para.list.outdent":
+      runCommand("outdentList");
+      return;
+    case "para.task.complete":
+      runCommand("setTaskChecked", true);
+      return;
+    case "para.task.incomplete":
+      runCommand("setTaskChecked", false);
+      return;
+    case "para.task.toggle":
+      runCommand("toggleTaskChecked");
+      return;
+    case "para.insert-before":
+      runCommand("insertParagraph", "before");
+      return;
+    case "para.insert-after":
+      runCommand("insertParagraph", "after");
+      return;
     case "para.table.insert":
       runCommand("insertTable");
+      return;
+    case "para.table.row-above":
+      runCommand("tableAddRow", "before");
+      return;
+    case "para.table.row-below":
+      runCommand("tableAddRow", "after");
+      return;
+    case "para.table.col-before":
+      runCommand("tableAddColumn", "before");
+      return;
+    case "para.table.col-after":
+      runCommand("tableAddColumn", "after");
+      return;
+    case "para.table.row-up":
+      runCommand("tableMoveRow", -1);
+      return;
+    case "para.table.row-down":
+      runCommand("tableMoveRow", 1);
+      return;
+    case "para.table.col-left":
+      runCommand("tableMoveColumn", -1);
+      return;
+    case "para.table.col-right":
+      runCommand("tableMoveColumn", 1);
+      return;
+    case "para.table.delete-row":
+      runCommand("tableDelete", "row");
+      return;
+    case "para.table.delete-column":
+      runCommand("tableDelete", "column");
+      return;
+    case "para.table.delete":
+      runCommand("tableDelete", "table");
+      return;
+    case "para.table.copy":
+      copyFromEditor(runCommand("tableMarkdown"), "表格");
+      return;
+    case "para.math-block":
+      void ui.prompt("公式块").then((value) => {
+        if (value === null) return;
+        runCommand("insertMathBlock", value);
+      });
       return;
     case "para.hr":
       runCommand("insertHr");
@@ -192,6 +557,41 @@ function applyMenuAction(action: string): void {
       void ui.prompt("链接地址", "https://").then((href) => {
         if (href) runCommand("toggleLink", href);
       });
+      return;
+    case "fmt.math-inline":
+      void ui.prompt("内联公式").then((value) => {
+        if (value) runCommand("insertMathInline", value);
+      });
+      return;
+    case "fmt.link.open": {
+      const href = runCommand("linkHref");
+      if (!href) {
+        ui.flash("光标不在链接上");
+        return;
+      }
+      void openUrl(href).catch(() => ui.flash("无法打开该链接"));
+      return;
+    }
+    case "fmt.link.copy": {
+      const href = runCommand("linkHref");
+      if (!href) {
+        ui.flash("光标不在链接上");
+        return;
+      }
+      copyFromEditor(href, "链接地址");
+      return;
+    }
+    case "fmt.image.reveal": {
+      const path = absoluteImagePath(runCommand("imageSource"));
+      if (!path) {
+        ui.flash("光标不在本地图片上");
+        return;
+      }
+      void revealPath(path).catch(() => ui.flash("无法在访达中显示该图片"));
+      return;
+    }
+    case "fmt.clear":
+      runCommand("clearFormat");
       return;
     case "fmt.image.insert":
     case "fmt.image.insert-local":
@@ -216,6 +616,24 @@ function applyMenuAction(action: string): void {
       return;
     case "view.panel.search":
       ui.setSidebarTab("search");
+      return;
+    case "view.word-count":
+      showWordCount();
+      return;
+    case "view.outline-popover":
+      showOutlinePopover();
+      return;
+    case "view.actual-size":
+      applyZoom(1);
+      return;
+    case "view.zoom-in":
+      stepZoom(1);
+      return;
+    case "view.zoom-out":
+      stepZoom(-1);
+      return;
+    case "view.always-on-top":
+      toggleAlwaysOnTop();
       return;
 
     case "app.preferences":

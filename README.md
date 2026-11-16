@@ -150,8 +150,18 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | --- | --- |
 | Undo / Redo | ⌘Z / ⌘⇧Z |
 | Select all | ⌘A |
+| Select block / line / word | ⌘⌥P / ⌘L / ⌘D |
+| Select text with the same format | ⌘E |
+| Jump to top / bottom | ⌃⌘↑ / ⌃⌘↓ |
+| Jump to line start / end | ⌃A / ⌃E |
+| Move line up / down | ⌥↑ / ⌥↓ |
+| Copy as Markdown | ⌘⇧C |
+| Paste as plain text | ⌘⇧V |
+| Paste and match style | ⌥⌘⇧V |
 | Find… | ⌘F |
+| Find next / previous | ⌘G / ⌘⇧G |
 | Find & replace… | ⌘⌥F |
+| Replace next | ⌥⌘E |
 | Settings… | ⌘, |
 
 **Paragraph**
@@ -176,8 +186,10 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | Italic | ⌘I |
 | Code | ⌃&#96; |
 | Strikethrough | ⌃⇧&#96; |
+| Inline math | ⌃M |
 | Link… | ⌘K |
 | Insert image… | ⌃⌘I |
+| Clear formatting | ⌘\ |
 
 **View**
 
@@ -188,6 +200,8 @@ feature exists. Items that are not implemented yet stay in the menu but are grey
 | Typewriter mode | F9 |
 | Outline / documents / file tree | ⌃⌘1 / ⌃⌘2 / ⌃⌘3 |
 | Search | ⌘⇧F |
+| Actual size | ⌘⇧0 |
+| Zoom in / out | ⌘⇧= / ⌘⇧- |
 
 The native menu bar exposes the same commands, plus window controls, full screen and a
 keyboard-shortcut reference under **Help**.
@@ -211,13 +225,14 @@ src/                      React frontend
     highlight.ts          Shared Prism/refractor setup
     focus.ts              Focus and typewriter modes
     commands.ts           Formatting commands and outline extraction
-  lib/                    IPC wrappers, file actions, export, path helpers, self-test
+  lib/                    IPC wrappers, file actions, export, paths, clipboard, self-test
   stores/                 Zustand stores: tabs, workspace, ui, settings
   styles/index.css        App styles and print styles
 src-tauri/                Rust backend
   src/lib.rs              Builder, plugins, window/menu events, pending file opens
   src/commands/fs.rs      Read/write, directory tree, rename/delete, images
   src/commands/search.rs  Workspace search
+  src/commands/platform.rs Clipboard, Finder reveal, external URLs
   src/menu.rs             Native (Chinese) menu bar
   src/watcher.rs          Recursive file watching via `notify`
   src/error.rs            Serializable error type

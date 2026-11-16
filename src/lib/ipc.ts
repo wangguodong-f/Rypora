@@ -111,6 +111,22 @@ export function takePendingFiles(): Promise<string[]> {
   return invoke<string[]>("take_pending_files");
 }
 
+export function copyText(text: string): Promise<void> {
+  return invoke<void>("copy_text", { text });
+}
+
+export function readClipboard(): Promise<string> {
+  return invoke<string>("read_clipboard");
+}
+
+export function revealPath(path: string): Promise<void> {
+  return invoke<void>("reveal_path", { path });
+}
+
+export function openUrl(url: string): Promise<void> {
+  return invoke<void>("open_url", { url });
+}
+
 export function onOpenFiles(
   handler: (paths: string[]) => void,
 ): Promise<UnlistenFn> {

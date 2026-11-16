@@ -24,6 +24,9 @@ interface UiState {
   focusMode: boolean;
   typewriterMode: boolean;
   findOpen: boolean;
+  findQuery: string;
+  findReplacement: string;
+  findResult: { index: number; total: number };
   settingsOpen: boolean;
   outline: OutlineItem[];
   selection: SelectionInfo;
@@ -38,6 +41,9 @@ interface UiState {
   setFocusMode: (value: boolean) => void;
   setTypewriterMode: (value: boolean) => void;
   setFindOpen: (value: boolean) => void;
+  setFindQuery: (value: string) => void;
+  setFindReplacement: (value: string) => void;
+  setFindResult: (value: { index: number; total: number }) => void;
   setSettingsOpen: (value: boolean) => void;
   setOutline: (outline: OutlineItem[]) => void;
   setSelection: (selection: SelectionInfo) => void;
@@ -55,6 +61,9 @@ export const useUi = create<UiState>((set, get) => ({
   focusMode: false,
   typewriterMode: false,
   findOpen: false,
+  findQuery: "",
+  findReplacement: "",
+  findResult: { index: -1, total: 0 },
   settingsOpen: false,
   outline: [],
   selection: { line: 1, column: 1, empty: true },
@@ -69,6 +78,9 @@ export const useUi = create<UiState>((set, get) => ({
   setFocusMode: (value) => set({ focusMode: value }),
   setTypewriterMode: (value) => set({ typewriterMode: value }),
   setFindOpen: (value) => set({ findOpen: value }),
+  setFindQuery: (value) => set({ findQuery: value }),
+  setFindReplacement: (value) => set({ findReplacement: value }),
+  setFindResult: (value) => set({ findResult: value }),
   setSettingsOpen: (value) => set({ settingsOpen: value }),
   setOutline: (outline) => set({ outline }),
   setSelection: (selection) => set({ selection }),
