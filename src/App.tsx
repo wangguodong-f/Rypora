@@ -272,6 +272,14 @@ function showFileInfo(): void {
   );
 }
 
+/** Text inputs and textareas (Quick Open, find bar, dialogs) keep native select-all. */
+function focusedTextControl(): HTMLInputElement | HTMLTextAreaElement | null {
+  const element = document.activeElement;
+  if (element instanceof HTMLInputElement) return element;
+  if (element instanceof HTMLTextAreaElement) return element;
+  return null;
+}
+
 function applyMenuAction(action: string): void {
   const ui = useUi.getState();
   const tabs = useTabs.getState();
@@ -391,9 +399,15 @@ function applyMenuAction(action: string): void {
     case "edit.redo":
       runCommand("redo");
       return;
-    case "edit.select.all":
+    case "edit.select.all": {
+      const control = focusedTextControl();
+      if (control) {
+        control.select();
+        return;
+      }
       runCommand("selectAll");
       return;
+    }
     case "edit.math.refresh":
       runCommand("refresh");
       return;

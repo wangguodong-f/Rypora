@@ -176,7 +176,8 @@ greyed out.
 | Select all | ⌘A |
 | Select block / line / word | ⌘⌥P / ⌘L / ⌘D |
 | Select text with the same format | ⌘E |
-| Jump to top / bottom | ⌃⌘↑ / ⌃⌘↓ |
+| Jump to top / bottom | ⌘↑ / ⌘↓ |
+| Jump to selection | ⌘J |
 | Jump to line start / end | ⌃A / ⌃E |
 | Move line up / down | ⌥↑ / ⌥↓ |
 | Copy as Markdown | ⌘⇧C |
@@ -201,8 +202,11 @@ greyed out.
 | Task list | ⌘⌥X |
 | Insert table | ⌘⌥T |
 | Horizontal line | ⌘⌥- |
+| Block math | ⌘⌥B |
 | Link reference | ⌘⌥L |
 | Footnote | ⌘⌥R |
+| Increase / decrease heading level | ⌘= / ⌘- |
+| Increase / decrease list indent | ⌘] / ⌘[ |
 | Note / Tip / Important / Warning / Caution | **Paragraph → Alerts** menu |
 
 **Format**
@@ -331,8 +335,8 @@ The frontend keeps up to 24 recent paths in settings and pushes them to Rust wit
 entries as `file.recent.open.<index>`, newest first. ⌘⇧T pops the closed-tab stack.
 
 Quick Open merges open tabs, recent files and the workspace tree, then ranks them with a
-fuzzy matcher over the full path (subsequence matching with bonuses for word starts and
-consecutive hits).
+fuzzy matcher over the path (subsequence matching with bonuses for word starts and
+consecutive hits); a hit in the file name outranks one buried in a directory.
 
 ### Images
 
@@ -440,7 +444,7 @@ Unicode offsets) and rename. It writes a JSON report to
 
 - Equation editing uses a text prompt rather than a dedicated equation editor.
 - Windows and Linux builds are untested.
-- The main JS chunk is about 1.36 MB (Milkdown, KaTeX and Prism); code splitting is a
+- The main JS chunk is about 1.35 MB (Milkdown, KaTeX and Prism); code splitting is a
   pending optimisation.
 - Source mode is a plain textarea without syntax highlighting.
 - Link definitions render as a read-only block; edit their URL in source mode.

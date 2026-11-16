@@ -12,6 +12,8 @@ interface Entry {
   path: string;
   name: string;
   detail: string;
+  /** Text the fuzzy query runs against; includes the file name. */
+  search: string;
 }
 
 function flatten(nodes: FileNode[], out: Entry[], root: string): void {
@@ -20,10 +22,12 @@ function flatten(nodes: FileNode[], out: Entry[], root: string): void {
       if (node.children) flatten(node.children, out, root);
       continue;
     }
+    const detail = relativePath(root, node.path);
     out.push({
       path: node.path,
       name: node.name,
-      detail: relativePath(root, node.path),
+      detail,
+      search: detail,
     });
   }
 }
@@ -66,10 +70,16 @@ export function QuickOpen() {
         path: tab.path,
         name: tab.title,
         detail: dirname(tab.path),
+        search: tab.path,
       });
     }
     for (const path of recent) {
-      push({ path, name: basename(path), detail: dirname(path) });
+      push({
+        path,
+        name: basename(path),
+        detail: dirname(path),
+        search: path,
+      });
     }
     if (root) {
       const files: Entry[] = [];
@@ -83,8 +93,12 @@ export function QuickOpen() {
   const results = useMemo(() => {
     const scored = entries
       .map((entry) => {
-        const match = fuzzyMatch(query, entry.detail);
-        return match ? { entry, score: match.score } : null;
+        const match = fuzzyMatch(query, entry.search);
+        if (!match) return null;
+        // A hit in the file name should outrank one buried in the directory.
+        const nameMatch = query ? fuzzyMatch(query, entry.name) : null;
+        const score = match.score + (nameMatch ? 30 + nameMatch.score : 0);
+        return { entry, score };
       })
       .filter((item): item is { entry: Entry; score: number } => item !== null)
       .sort((a, b) => b.score - a.score);
