@@ -425,6 +425,17 @@ export function renameLinkReferences(node: MdNode): void {
   }
 }
 
+/**
+ * An empty footnote definition is serialized as `[^1]: <br />` because the
+ * commonmark preset preserves empty paragraphs. Typora writes `[^1]: `.
+ */
+export function normalizeEmptyFootnoteDefinitions(markdown: string): string {
+  return markdown.replace(
+    /^\[\^([^\]]+)\]:[ \t]*<br\s*\/?>[ \t]*$/gm,
+    "[^$1]: ",
+  );
+}
+
 export const linkRefRemark = $remark(
   "rypora-link-ref-preserve",
   () =>

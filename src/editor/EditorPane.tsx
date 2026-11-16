@@ -30,6 +30,7 @@ import {
   linkDefinitionSchema,
   linkRefRemark,
   linkRefSchema,
+  normalizeEmptyFootnoteDefinitions,
   richRemark,
   subscriptSchema,
   superscriptSchema,
@@ -101,7 +102,7 @@ function EditorHost({
         ctx.set(remarkGFMPlugin.options.key, { singleTilde: false });
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown) => {
-            onChangeRef.current(markdown);
+            onChangeRef.current(normalizeEmptyFootnoteDefinitions(markdown));
           })
           .selectionUpdated((_ctx, selection) => {
             onSelectionRef.current(selectionInfo(selection));
