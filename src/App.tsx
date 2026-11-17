@@ -281,6 +281,17 @@ function focusedTextControl(): HTMLInputElement | HTMLTextAreaElement | null {
   return null;
 }
 
+/**
+ * Undo/redo inside a focused text input. The native menu owns Cmd+Z, so without
+ * this the accelerator would fall through to the rich-text editor and do
+ * nothing while typing in source mode or a dialog field.
+ */
+function textControlHistory(direction: "undo" | "redo"): boolean {
+  const control = focusedTextControl();
+  if (!control) return false;
+  return document.execCommand(direction);
+}
+
 function applyMenuAction(action: string): void {
   const ui = useUi.getState();
   const tabs = useTabs.getState();
@@ -395,10 +406,10 @@ function applyMenuAction(action: string): void {
       return;
 
     case "edit.undo":
-      runCommand("undo");
+      if (!textControlHistory("undo")) runCommand("undo");
       return;
     case "edit.redo":
-      runCommand("redo");
+      if (!textControlHistory("redo")) runCommand("redo");
       return;
     case "edit.select.all": {
       const control = focusedTextControl();

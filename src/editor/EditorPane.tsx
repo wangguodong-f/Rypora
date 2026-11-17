@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import {
   Milkdown,
   MilkdownProvider,
@@ -217,6 +217,16 @@ interface EditorPaneProps {
   onOutline: (outline: OutlineItem[]) => void;
 }
 
+function fitSourceTextarea(textarea: HTMLTextAreaElement): void {
+  const pane = textarea.parentElement;
+  const scrollTop = pane?.scrollTop ?? 0;
+  // Measuring with height:auto briefly collapses the pane's scroll height, so
+  // restore the scroll offset afterwards to keep the viewport in place.
+  textarea.style.height = "auto";
+  textarea.style.height = `${textarea.scrollHeight}px`;
+  if (pane) pane.scrollTop = scrollTop;
+}
+
 function SourceEditor({
   tab,
   onChange,
@@ -224,9 +234,29 @@ function SourceEditor({
   tab: Tab;
   onChange: (markdown: string) => void;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Grow the textarea to fit the document so that the pane itself scrolls, the
+  // same way the rich-text editor does. A fixed-height textarea would scroll
+  // internally and confine the document to the top of the pane.
+  useLayoutEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) fitSourceTextarea(textarea);
+  }, [tab.content]);
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    const pane = textarea?.parentElement;
+    if (!textarea || !pane) return;
+    const observer = new ResizeObserver(() => fitSourceTextarea(textarea));
+    observer.observe(pane);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div className="source-editor">
       <textarea
+        ref={textareaRef}
         className="source-textarea"
         value={tab.content}
         spellCheck={false}

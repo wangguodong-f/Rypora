@@ -2199,19 +2199,20 @@ select {
 .source-editor {
   flex: 1;
   min-height: 0;
-  display: flex;
   padding: 34px 56px 45vh;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg);
 }
 
 .source-textarea {
-  flex: 1;
+  display: block;
   width: 100%;
   max-width: var(--editor-width);
   margin: 0 auto;
-  min-height: 100%;
+  padding: 0;
   resize: none;
+  overflow: hidden;
   border: none;
   outline: none;
   background: transparent;
