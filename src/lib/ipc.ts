@@ -78,6 +78,15 @@ export function setRecentFiles(files: string[]): Promise<void> {
   return invoke<void>("set_recent_files", { files });
 }
 
+/** Mirror the View toggles as check marks in the native menu. */
+export function syncViewChecks(view: {
+  source: boolean;
+  focus: boolean;
+  typewriter: boolean;
+}): Promise<void> {
+  return invoke<void>("sync_view_checks", view);
+}
+
 export function focusAllWindows(): Promise<void> {
   return invoke<void>("focus_all_windows");
 }

@@ -71,7 +71,8 @@ by the Rust backend.
 - Three UI modes (follow system, light, dark) plus the six Typora themes: Github, Gothic,
   Newsprint, Night, Pixyll and Whitey; Night is a dark theme and shares the dark syntax
   tokens
-- Focus mode and typewriter mode
+- Focus mode, typewriter mode (the caret stays on the vertical centre of the editor)
+  and source mode; the **View** menu shows a check mark for each active mode
 - Adjustable font size, line width, sidebar visibility and spellcheck
 - Settings persist across launches
 - Export to a self-contained HTML file (KaTeX CSS inlined, Mermaid rendered to SVG,

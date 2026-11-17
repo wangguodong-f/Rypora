@@ -18,6 +18,10 @@ struct PendingOpen(Mutex<HashMap<String, Vec<String>>>);
 #[derive(Default)]
 struct RecentFiles(Mutex<Vec<String>>);
 
+/// Source / focus / typewriter toggles mirrored by the **View** check marks.
+#[derive(Default)]
+struct ViewChecks(Mutex<menu::ViewState>);
+
 static WINDOW_COUNTER: AtomicUsize = AtomicUsize::new(1);
 
 const OPENABLE_EXTENSIONS: [&str; 4] = ["md", "markdown", "mdx", "txt"];
@@ -74,8 +78,40 @@ fn set_recent_files<R: Runtime>(
         let mut list = recent.0.lock().expect("recent files lock poisoned");
         *list = files.clone();
     }
-    let menu = menu::build_menu(&app, &files).map_err(|error| error.to_string())?;
+    let view = *app
+        .state::<ViewChecks>()
+        .0
+        .lock()
+        .expect("view checks lock poisoned");
+    let menu = menu::build_menu(&app, &files, view).map_err(|error| error.to_string())?;
     app.set_menu(menu).map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+/// Keep the native **View** check marks in sync with the focused window.
+#[tauri::command]
+fn sync_view_checks<R: Runtime>(
+    app: AppHandle<R>,
+    source: bool,
+    focus: bool,
+    typewriter: bool,
+) -> Result<(), String> {
+    let state = menu::ViewState {
+        source,
+        focus,
+        typewriter,
+    };
+    *app
+        .state::<ViewChecks>()
+        .0
+        .lock()
+        .expect("view checks lock poisoned") = state;
+    menu::apply_view_checks(&app, state).map_err(|error| error.to_string())?;
+    if std::env::var_os("RYPORA_DUMP_MENU").is_some() {
+        if let Some(menu) = app.menu() {
+            menu::dump(&menu);
+        }
+    }
     Ok(())
 }
 
@@ -130,6 +166,7 @@ pub fn run() {
         .manage(WatcherState::default())
         .manage(PendingOpen::default())
         .manage(RecentFiles::default())
+        .manage(ViewChecks::default())
         .invoke_handler(tauri::generate_handler![
             commands::fs::open_file,
             commands::fs::save_file,
@@ -151,6 +188,7 @@ pub fn run() {
             watcher::unwatch_workspace,
             take_pending_files,
             set_recent_files,
+            sync_view_checks,
             new_window,
             focus_all_windows,
             commands::platform::copy_text,
@@ -160,7 +198,7 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle();
-            let menu = menu::build_menu(handle, &[])?;
+            let menu = menu::build_menu(handle, &[], menu::ViewState::default())?;
             if std::env::var_os("RYPORA_DUMP_MENU").is_some() {
                 menu::dump(&menu);
             }

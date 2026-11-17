@@ -44,6 +44,7 @@ import {
   onOpenFiles,
   openFile,
   setRecentFiles,
+  syncViewChecks,
   takePendingFiles,
   focusAllWindows,
 } from "./lib/ipc";
@@ -819,6 +820,8 @@ export default function App() {
   const setDark = useUi((state) => state.setDark);
   const sidebarVisible = useUi((state) => state.sidebarVisible);
   const focusMode = useUi((state) => state.focusMode);
+  const sourceMode = useUi((state) => state.sourceMode);
+  const typewriterMode = useUi((state) => state.typewriterMode);
   const setFindOpen = useUi((state) => state.setFindOpen);
   const setOutline = useUi((state) => state.setOutline);
   const setSelection = useUi((state) => state.setSelection);
@@ -913,6 +916,36 @@ graph TD
     if (!isTauri()) return;
     void setRecentFiles(recentFiles).catch(() => undefined);
   }, [recentFiles]);
+
+  // The View menu is shared by every window, so the focused window owns the
+  // check marks. Sync on toggle, and again whenever a window is refocused.
+  useEffect(() => {
+    if (!isTauri()) return;
+    void syncViewChecks({
+      source: sourceMode,
+      focus: focusMode,
+      typewriter: typewriterMode,
+    }).catch(() => undefined);
+  }, [sourceMode, focusMode, typewriterMode]);
+
+  useEffect(() => {
+    if (!isTauri()) return;
+    let dispose: (() => void) | undefined;
+    void getCurrentWindow()
+      .onFocusChanged(({ payload: focused }) => {
+        if (!focused) return;
+        const state = useUi.getState();
+        void syncViewChecks({
+          source: state.sourceMode,
+          focus: state.focusMode,
+          typewriter: state.typewriterMode,
+        }).catch(() => undefined);
+      })
+      .then((unlisten) => {
+        dispose = unlisten;
+      });
+    return () => dispose?.();
+  }, []);
 
   // Root-relative image paths change meaning when the image root changes.
   useEffect(() => {

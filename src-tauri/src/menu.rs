@@ -1,5 +1,15 @@
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu, SubmenuBuilder};
+use tauri::menu::{
+    CheckMenuItem, Menu, MenuItem, MenuItemKind, PredefinedMenuItem, Submenu, SubmenuBuilder,
+};
 use tauri::{AppHandle, Runtime};
+
+/// Toggle state mirrored by the check marks in the **View** menu.
+#[derive(Clone, Copy, Default)]
+pub struct ViewState {
+    pub source: bool,
+    pub focus: bool,
+    pub typewriter: bool,
+}
 
 /// An available menu item.
 fn it<R: Runtime>(
@@ -9,6 +19,17 @@ fn it<R: Runtime>(
     accelerator: Option<&str>,
 ) -> tauri::Result<MenuItem<R>> {
     MenuItem::with_id(app, id, label, true, accelerator)
+}
+
+/// A toggleable menu item; macOS draws a check mark when `checked` is true.
+fn check<R: Runtime>(
+    app: &AppHandle<R>,
+    id: &str,
+    label: &str,
+    checked: bool,
+    accelerator: Option<&str>,
+) -> tauri::Result<CheckMenuItem<R>> {
+    CheckMenuItem::with_id(app, id, label, true, checked, accelerator)
 }
 
 /// A menu item whose behaviour is not implemented yet. It stays visible so the
@@ -776,17 +797,33 @@ fn format_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
         .build()
 }
 
-fn view_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
+fn view_menu<R: Runtime>(
+    app: &AppHandle<R>,
+    view: ViewState,
+) -> tauri::Result<Submenu<R>> {
     SubmenuBuilder::new(app, "显示")
-        .item(&it(
+        .item(&check(
             app,
             "view.source-mode",
             "源代码模式",
+            view.source,
             Some("CmdOrCtrl+/"),
         )?)
         .separator()
-        .item(&it(app, "view.focus-mode", "专注模式", Some("F8"))?)
-        .item(&it(app, "view.typewriter-mode", "打字机模式", Some("F9"))?)
+        .item(&check(
+            app,
+            "view.focus-mode",
+            "专注模式",
+            view.focus,
+            Some("F8"),
+        )?)
+        .item(&check(
+            app,
+            "view.typewriter-mode",
+            "打字机模式",
+            view.typewriter,
+            Some("F9"),
+        )?)
         .separator()
         .item(&it(
             app,
@@ -886,6 +923,7 @@ fn help_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Submenu<R>> {
 pub fn build_menu<R: Runtime>(
     app: &AppHandle<R>,
     recent_files: &[String],
+    view: ViewState,
 ) -> tauri::Result<Menu<R>> {
     let app_menu = SubmenuBuilder::new(app, "Rypora")
         .item(&it(app, "app.about", "关于 Rypora", None)?)
@@ -909,12 +947,50 @@ pub fn build_menu<R: Runtime>(
             &edit_menu(app)?,
             &paragraph_menu(app)?,
             &format_menu(app)?,
-            &view_menu(app)?,
+            &view_menu(app, view)?,
             &theme_menu(app)?,
             &window_menu(app)?,
             &help_menu(app)?,
         ],
     )
+}
+
+/// Update the **View** check marks without rebuilding the menu (a rebuild would
+/// drop the recent-file list and reset every item).
+pub fn apply_view_checks<R: Runtime>(
+    app: &AppHandle<R>,
+    view: ViewState,
+) -> tauri::Result<()> {
+    fn find<R: Runtime>(items: &[MenuItemKind<R>], id: &str) -> Option<MenuItemKind<R>> {
+        for item in items {
+            if item.id().0.as_str() == id {
+                return Some(item.clone());
+            }
+            if let Some(submenu) = item.as_submenu() {
+                if let Ok(children) = submenu.items() {
+                    if let Some(found) = find(&children, id) {
+                        return Some(found);
+                    }
+                }
+            }
+        }
+        None
+    }
+
+    let Some(menu) = app.menu() else {
+        return Ok(());
+    };
+    let items = menu.items()?;
+    for (id, checked) in [
+        ("view.source-mode", view.source),
+        ("view.focus-mode", view.focus),
+        ("view.typewriter-mode", view.typewriter),
+    ] {
+        if let Some(MenuItemKind::Check(item)) = find(&items, id) {
+            item.set_checked(checked)?;
+        }
+    }
+    Ok(())
 }
 
 /// Development helper: print the whole menu tree. Enabled with
@@ -946,9 +1022,14 @@ pub fn dump<R: Runtime>(menu: &Menu<R>) {
                 println!("{pad}{} <predefined>", item.id().0)
             }
             MenuItemKind::Check(item) => println!(
-                "{pad}{} {}",
+                "{pad}{} {}{}",
                 item.id().0,
-                item.text().unwrap_or_default()
+                item.text().unwrap_or_default(),
+                if item.is_checked().unwrap_or(false) {
+                    "  [x]"
+                } else {
+                    ""
+                }
             ),
             MenuItemKind::Icon(item) => println!(
                 "{pad}{} {}",
