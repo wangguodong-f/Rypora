@@ -16,9 +16,9 @@ import { useWorkspace } from "../stores/workspace";
 import { IconFile, IconFilePlus, IconRefresh } from "./Icons";
 
 /**
- * Typora's "file list": a flat list of the documents that live directly in the
- * open folder. Unlike the file tree it does not show subfolders, which keeps
- * folders of flat notes (a blog, a daily-notes directory) free of nesting.
+ * Typora's "file list": a flat list of every document in the open folder,
+ * including those in subfolders. Unlike the file tree it hides the folder
+ * hierarchy, so a nested workspace reads as one alphabetical list.
  */
 const collator = new Intl.Collator("zh-Hans", {
   numeric: true,

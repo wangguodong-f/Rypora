@@ -63,7 +63,8 @@ by the Rust backend.
   with every file and subfolder, while the **file list** flattens every document in the
   folder and its subfolders into one alphabetical list (nested files keep their folder
   prefix). **View → Outline / File List / File Tree / Search** switches panels and
-  check-marks the active one; **File → Show in File List** jumps to the active document
+  check-marks the active one; **File → Show in File List / Show in File Tree / Open file
+  location** jumps to the active document in the matching panel or reveals it in Finder
 - Autosave with a configurable debounce, plus external-change detection and conflict
   prompts (mtime + BLAKE3)
 - Atomic writes (temporary file + rename) so a crash never leaves a half-written document
@@ -333,6 +334,27 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
   like the WYSIWYG view. Focus and typewriter modes keep working there: the current
   paragraph stays opaque while the rest fades, and the caret stays on the vertical centre.
 
+### Sidebar panels
+
+The sidebar exposes four panels, selected with **View → Outline / File List / File Tree /
+Search** (⌃⌘1 / ⌃⌘2 / ⌃⌘3 / ⌘⇧F). The active panel is check-marked in the View menu, and
+**File → Show in File List / Show in File Tree / Open file location** switches to the
+relevant panel or reveals the active document in Finder.
+
+- **File tree** (`FileTree.tsx`) renders the full hierarchy returned by `read_dir_tree`,
+  with create / rename / delete (delete moves to the Trash) on files and folders.
+- **File list** (`ArticleList.tsx`) reads the same tree but flattens it into a single
+  alphabetical list of every openable document (`.md`, `.markdown`, `.mdx`, `.txt`) at any
+  depth, sorted by relative path with a numeric-aware `Intl.Collator`. Documents inside
+  subfolders keep a dimmed `folder/` prefix so same-named files stay distinct. It supports
+  new file, refresh and a right-click menu (open / reveal in Finder), but no folder
+  operations.
+- **Outline** lists the active document's headings; clicking one moves the caret to it.
+- **Search** runs `search_workspace` across the open folder.
+
+Both file panels share the `OPENABLE_FILE` matcher and `ensureMarkdownExtension` helper in
+`src/lib/paths.ts`. The watcher refresh keeps them in sync with disk changes.
+
 ### Windows, recent files and quick open
 
 **New window** creates a `doc-N` webview window with the same bundle entry. Pending file
@@ -393,7 +415,7 @@ the frontend refreshes the tree and flags tabs whose file changed on disk.
 | Command | Purpose |
 | --- | --- |
 | `open_file`, `save_file`, `write_text_file`, `read_text_file` | Read, conflict-checked save, direct write |
-| `read_dir_tree` | Recursive directory listing for the file tree |
+| `read_dir_tree` | Recursive directory listing for the file tree and file list |
 | `create_file`, `create_folder`, `rename_path`, `delete_path`, `path_exists` | File management (delete uses the Trash) |
 | `delete_file` | Permanently remove a single file (used for image deletion) |
 | `save_image`, `import_image`, `copy_image`, `move_image` | Save images into `assets/`, copy or move image files |
@@ -401,6 +423,7 @@ the frontend refreshes the tree and flags tabs whose file changed on disk.
 | `watch_workspace`, `unwatch_workspace` | Install / drop the recursive watcher |
 | `take_pending_files(window)`, `new_window` | Per-window pending opens, create a window |
 | `set_recent_files`, `focus_all_windows` | Rebuild the Open Recent menu, raise all windows |
+| `sync_view_checks` | Update the View menu check marks for modes and the active panel |
 
 Events: `menu://action` (native menu, delivered to the focused window), `fs://changed`
 (watcher), `app://open-files` (document opened while the app is running).
