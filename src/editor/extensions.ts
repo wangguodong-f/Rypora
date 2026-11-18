@@ -501,9 +501,9 @@ function buildHtmlFragment(value: string): MdNode[] {
     const children = current.children!;
 
     if (token.kind === "text") {
-      // Keep text verbatim: remark would otherwise encode leading spaces after
-      // a newline as `&#x20;` inside the surrounding paragraph.
-      children.push({ type: "html", value: token.value });
+      // Keep text verbatim and editable: remark would otherwise encode leading
+      // spaces after a newline as `&#x20;` inside the surrounding paragraph.
+      children.push({ type: "htmlText", value: token.value });
       continue;
     }
     if (token.kind === "raw") {
@@ -913,6 +913,11 @@ export const HANDLERS = {
   htmlBreak(node: MdNode) {
     return String(node.value ?? "<br>");
   },
+  // Literal text inside an HTML element is kept in its own node so it can be
+  // edited in the WYSIWYG canvas while still round-tripping verbatim.
+  htmlText(node: MdNode) {
+    return String(node.value ?? "");
+  },
   htmlInline(node: MdNode, _parent: unknown, state: never, info: unknown) {
     const typed = state as never as {
       enter: (name: string) => () => void;
@@ -1136,6 +1141,39 @@ function htmlInlineDomAttrs(dom: HTMLElement) {
     href: safeHref(dom.getAttribute("href") ?? ""),
   };
 }
+
+/**
+ * Editable literal text inside an HTML element. Markdown syntax here stays
+ * literal (as in Typora), and the raw value is restored when saving.
+ */
+export const htmlTextSchema = $node("htmlText", () => ({
+  group: "inline",
+  inline: true,
+  content: "text*",
+  marks: "",
+  parseDOM: [
+    {
+      tag: "span[data-html-text]",
+      getAttrs: () => ({}),
+    },
+  ],
+  toDOM: () => ["span", { "data-html-text": "" }, 0],
+  parseMarkdown: {
+    match: (node) => node.type === "htmlText",
+    runner: (state, node, type) => {
+      state.openNode(type);
+      const value = String(node.value ?? "");
+      if (value) state.addText(value);
+      state.closeNode();
+    },
+  },
+  toMarkdown: {
+    match: (node) => node.type.name === "htmlText",
+    runner: (state, node) => {
+      state.addNode("htmlText", undefined, node.textContent);
+    },
+  },
+}));
 
 /**
  * A nestable node for Typora-compatible HTML. A mark cannot contain another

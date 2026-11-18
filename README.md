@@ -332,14 +332,16 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
   `abbr`, `data`, `time`, `code`, `var`, `samp`, `kbd`, `sub`, `sup`, `i`, `b`, `mark`, `ruby`,
   `span`, `ins`, `del`, `button`, `font`, `acronym`, `tt`, `progress`, `meter`, `svg`, `a`)
   is handled by one nestable inline node. The original tags live in the node's
-  attributes, so `<b>…</b>` is written back as HTML rather than `**…**`. `br` and `wbr` are
-  inline atoms and keep their exact spelling.
+  attributes, so `<b>…</b>` is written back as HTML rather than `**…**`. Text inside HTML
+  elements is editable directly in the rendered view; Markdown syntax there stays literal and
+  the original text round-trips. `br` and `wbr` are inline atoms and keep their exact spelling.
 - Block-level HTML uses the same node as inline HTML but renders with `display:block` and
   Typora's default styling (`<p>` margins, `<h1>`–`<h6>` sizes, `<center>` alignment,
   `text-align`, colour and background). A paragraph wrapper keeps it valid in the editor's
   content model, so `<p>`, `<div>`, `<center>`, `<details>`, `<h1>`–`<h6>` and the other
-  container tags render as WYSIWYG blocks and are written back verbatim. Nested tags,
-  comments, `<br>`/`<wbr>`, safe `href`/`style` values and unknown tags are preserved.
+  container tags render as WYSIWYG blocks and are written back verbatim. Their inner text can
+  be edited in place. Nested tags, comments, `<br>`/`<wbr>`, safe `href`/`style` values and
+  unknown tags are preserved.
 - The extensions only affect the in-memory editor; files on disk remain plain Markdown.
 - GFM's `singleTilde` is disabled so `~x~` means subscript; `~~x~~` still means strikethrough.
 - Alerts render as coloured blocks but are stored as `> [!KIND]` block quotes.

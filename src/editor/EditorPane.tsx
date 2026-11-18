@@ -34,6 +34,7 @@ import {
   highlightSchema,
   htmlBreakSchema,
   htmlInlineSchema,
+  htmlTextSchema,
   linkDefinitionSchema,
   linkRefRemark,
   linkRefSchema,
@@ -184,6 +185,7 @@ function EditorHost({
       .use(richRemark)
       .use(underlineSchema)
       .use(htmlInlineSchema)
+      .use(htmlTextSchema)
       .use(htmlBreakSchema)
       .use(highlightSchema)
       .use(superscriptSchema)
