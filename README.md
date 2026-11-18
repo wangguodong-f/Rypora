@@ -38,6 +38,8 @@ by the Rust backend.
 - Mermaid diagrams previewed live inside the document, and rendered to SVG on export
 - Syntax highlighting in code fences (Rust, TypeScript/JavaScript, Python, Go, Java,
   C/C++, SQL, JSON, YAML, Bash, and more) via Prism / refractor
+- Typora-style code fence language chip: focusing a fence reveals its language in the
+  upper-right corner; click it to type any language or choose from a list of common ones
 - Multi-tab editing, a workspace file tree, a flat file list of every document in the
   folder (subfolders included), a document outline, workspace search, and in-document
   find & replace
@@ -314,6 +316,9 @@ altering the Markdown that is written back to disk.
   equation opens a small prompt (an MVP choice, not a full equation editor).
 - **Mermaid** fences are shown through a widget decoration; export replaces them with
   rendered SVG.
+- **Code fences** use a node view and a selection decoration. The language chip appears
+  only while the caret is inside that block; the picker writes the `language` attribute,
+  which is serialized as the fence info string and also re-triggers Prism highlighting.
 - **Task lists** avoid native `<input>` elements (which fight with ProseMirror); checkboxes
   are CSS pseudo-elements and a click handler toggles `checked` on the node.
 - **Images** are resolved per document directory. Pasted or dropped files are written to

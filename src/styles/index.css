@@ -1264,6 +1264,116 @@ select {
   font-size: 0.86em;
 }
 
+/* Code fence language chip: Typora reveals the language in the top-right
+   corner while the caret is inside the block. */
+.milkdown .editor .md-code-block {
+  position: relative;
+  margin: 0.95em 0;
+}
+
+.milkdown .editor .md-code-block > pre {
+  margin: 0;
+}
+
+.milkdown .editor .md-code-language {
+  position: absolute;
+  top: 7px;
+  right: 9px;
+  z-index: 8;
+  display: none;
+  font-family: var(--ui-font-family, inherit);
+}
+
+.milkdown .editor .md-code-block-focused > .md-code-language,
+.milkdown .editor .md-code-language.is-open {
+  display: block;
+}
+
+.milkdown .editor .md-code-language-button {
+  min-width: 42px;
+  min-height: 22px;
+  padding: 1px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  color: var(--text-soft);
+  font-family: var(--mono-font-family);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-align: center;
+  cursor: pointer;
+}
+
+.milkdown .editor .md-code-language-button:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.milkdown .editor .md-code-language-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 248px;
+  padding: 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.milkdown .editor .md-code-language-menu[hidden] {
+  display: none;
+}
+
+.milkdown .editor .md-code-language-input {
+  display: block;
+  width: 100%;
+  padding: 6px 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--mono-font-family);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.milkdown .editor .md-code-language-input:focus {
+  border-color: var(--accent);
+}
+
+.milkdown .editor .md-code-language-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  max-height: 216px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.milkdown .editor .md-code-language-option {
+  padding: 5px 7px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 0.75rem;
+  line-height: 1.4;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.milkdown .editor .md-code-language-option:hover,
+.milkdown .editor .md-code-language-option[data-selected="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
 /* HTML block source editor: a transparent textarea sits on top of a syntax
    highlight overlay. The textarea's DOM is never rebuilt, so IME composition
    works normally; the overlay only mirrors its text with colours. */

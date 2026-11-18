@@ -21,6 +21,7 @@ import { cursor } from "@milkdown/kit/plugin/cursor";
 import { trailing } from "@milkdown/kit/plugin/trailing";
 import { prism, prismConfig } from "@milkdown/plugin-prism";
 import { outline } from "@milkdown/kit/utils";
+import { codeBlockFocusPlugin, codeBlockView } from "./codeBlock";
 import { computeOutline, createCommands } from "./commands";
 import { setEditorCommands } from "./editorBus";
 import { focusPlugin, typewriterPlugin } from "./focus";
@@ -172,12 +173,14 @@ function EditorHost({
       })
       .use(linkRefRemark)
       .use(commonmark)
+      .use(codeBlockView)
       .use(gfm)
       .use(history)
       .use(listener)
       .use(clipboard)
       .use(cursor)
       .use(prism)
+      .use(codeBlockFocusPlugin)
       .use(taskListPlugin)
       .use(mathRemark)
       .use(mathInlineSchema)
