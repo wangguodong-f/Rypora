@@ -780,8 +780,29 @@ select {
 
 .article-name {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.article-dir {
+  flex: 0 100 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-faint);
+}
+
+.article-file {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.article-row.active .article-dir {
+  color: var(--accent);
+  opacity: 0.72;
 }
 
 .article-note {

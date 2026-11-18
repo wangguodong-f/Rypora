@@ -35,8 +35,9 @@ by the Rust backend.
 - Mermaid diagrams previewed live inside the document, and rendered to SVG on export
 - Syntax highlighting in code fences (Rust, TypeScript/JavaScript, Python, Go, Java,
   C/C++, SQL, JSON, YAML, Bash, and more) via Prism / refractor
-- Multi-tab editing, a workspace file tree, a flat file list of the open folder, a
-  document outline, workspace search, and in-document find & replace
+- Multi-tab editing, a workspace file tree, a flat file list of every document in the
+  folder (subfolders included), a document outline, workspace search, and in-document
+  find & replace
 - Multi-window editing (⌘⇧N); each window owns its tabs, and menu commands act on the
   focused window
 - Quick Open (⌘⇧O) fuzzy-searches open tabs, recent files and the workspace; a
@@ -59,11 +60,10 @@ by the Rust backend.
 - File tree operations: create file/folder, rename, delete (moves to the system Trash);
   **File → Delete** moves the active document to the Trash
 - Two file panels in the sidebar: the **file tree** shows the whole folder hierarchy
-  with every file and subfolder, while the **file list** shows only the documents that
-  sit directly in the open folder, as a flat alphabetical list (subfolders are left to
-  the file tree). **View → Outline / File List / File Tree / Search** switches panels
-  and check-marks the active one; **File → Show in File List** jumps to the active
-  document
+  with every file and subfolder, while the **file list** flattens every document in the
+  folder and its subfolders into one alphabetical list (nested files keep their folder
+  prefix). **View → Outline / File List / File Tree / Search** switches panels and
+  check-marks the active one; **File → Show in File List** jumps to the active document
 - Autosave with a configurable debounce, plus external-change detection and conflict
   prompts (mtime + BLAKE3)
 - Atomic writes (temporary file + rename) so a crash never leaves a half-written document

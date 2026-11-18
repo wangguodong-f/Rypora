@@ -25,6 +25,35 @@ const collator = new Intl.Collator("zh-Hans", {
   sensitivity: "base",
 });
 
+interface DocumentEntry {
+  node: FileNode;
+  /** Path relative to the workspace root, used for sorting and display. */
+  relative: string;
+}
+
+/**
+ * Flatten the workspace tree into every document it contains, including the
+ * ones inside subfolders. Paths keep the folder prefix so documents with the
+ * same name stay distinguishable.
+ */
+function collectDocuments(nodes: FileNode[]): DocumentEntry[] {
+  const entries: DocumentEntry[] = [];
+  const walk = (list: FileNode[], prefix: string) => {
+    for (const node of list) {
+      const relative = prefix ? `${prefix}/${node.name}` : node.name;
+      if (node.isDir) {
+        if (node.children) walk(node.children, relative);
+      } else if (OPENABLE_FILE.test(node.name)) {
+        entries.push({ node, relative });
+      }
+    }
+  };
+  walk(nodes, "");
+  return entries.sort((left, right) =>
+    collator.compare(left.relative, right.relative),
+  );
+}
+
 interface MenuState {
   x: number;
   y: number;
@@ -59,14 +88,7 @@ export function ArticleList() {
     };
   }, [menu]);
 
-  const documents = useMemo(
-    () =>
-      tree
-        .filter((node) => !node.isDir && OPENABLE_FILE.test(node.name))
-        .slice()
-        .sort((left, right) => collator.compare(left.name, right.name)),
-    [tree],
-  );
+  const documents = useMemo(() => collectDocuments(tree), [tree]);
 
   // Keep the active document visible when it changes from outside the panel
   // (a tab switch, or **File → Show in File List**).
@@ -127,8 +149,11 @@ export function ArticleList() {
         </button>
       </div>
       <div className="article-scroll">
-        {documents.map((node) => {
+        {documents.map(({ node, relative }) => {
           const isActive = !!activePath && samePath(activePath, node.path);
+          const slash = relative.lastIndexOf("/");
+          const dir = slash >= 0 ? relative.slice(0, slash + 1) : "";
+          const name = slash >= 0 ? relative.slice(slash + 1) : relative;
           return (
             <div
               key={node.path}
@@ -144,16 +169,19 @@ export function ArticleList() {
               <span className="article-icon">
                 <IconFile size={15} />
               </span>
-              <span className="article-name">{node.name}</span>
+              <span className="article-name">
+                {dir && <span className="article-dir">{dir}</span>}
+                <span className="article-file">{name}</span>
+              </span>
             </div>
           );
         })}
         {!documents.length && !loading && (
-          <div className="tree-empty">此文件夹中没有可打开的文档</div>
+          <div className="tree-empty">文件夹中没有可打开的文档</div>
         )}
         {loading && <div className="tree-empty">正在读取…</div>}
       </div>
-      <div className="article-note">仅列出当前文件夹中的文档，子文件夹请用文件树</div>
+      <div className="article-note">递归列出所有子文件夹中的文档</div>
 
       {menu && (
         <div

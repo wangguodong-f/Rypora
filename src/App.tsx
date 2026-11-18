@@ -48,7 +48,7 @@ import {
   takePendingFiles,
   focusAllWindows,
 } from "./lib/ipc";
-import { basename, dirname, joinPath, samePath } from "./lib/paths";
+import { basename, joinPath, samePath } from "./lib/paths";
 import { isSameMarkdown } from "./lib/markdownCompare";
 import {
   openUrl,
@@ -232,23 +232,20 @@ function revealInList(): void {
     return;
   }
   ui.setSidebarTab("articles");
-  const root = workspace.root;
-  if (!root) {
+  if (!workspace.root) {
     ui.flash("请先打开一个文件夹");
     return;
   }
-  if (!samePath(dirname(tab.path), root)) {
-    ui.flash("该文件不在当前文件夹的顶层，请用文件树");
-    return;
-  }
+  const path = tab.path;
   window.setTimeout(() => {
     const rows = document.querySelectorAll<HTMLElement>(".article-row");
     for (const row of rows) {
-      if (row.dataset.path === tab.path) {
+      if (row.dataset.path && samePath(row.dataset.path, path)) {
         row.scrollIntoView({ block: "nearest" });
         return;
       }
     }
+    ui.flash("当前文件不在已打开的文件夹中");
   }, 80);
 }
 
