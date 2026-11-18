@@ -83,6 +83,7 @@ export function syncViewChecks(view: {
   source: boolean;
   focus: boolean;
   typewriter: boolean;
+  panel: string;
 }): Promise<void> {
   return invoke<void>("sync_view_checks", view);
 }

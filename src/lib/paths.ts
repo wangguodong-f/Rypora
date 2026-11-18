@@ -47,6 +47,16 @@ export function stripMarkdownExtension(name: string): string {
   return name.replace(/\.(md|markdown|mdx|txt)$/i, "");
 }
 
+/** Files the editor can open, used by the file tree and the file list. */
+export const OPENABLE_FILE = /\.(md|markdown|mdx|txt)$/i;
+
+/** Append `.md` when the user typed a bare name in a "new file" prompt. */
+export function ensureMarkdownExtension(name: string): string {
+  if (!name) return name;
+  if (/\.[A-Za-z0-9]+$/.test(name)) return name;
+  return `${name}.md`;
+}
+
 const REMOTE_SRC = /^(https?:|data:|blob:|asset:|tauri:)/i;
 const FILE_URL = /^file:\/\//i;
 

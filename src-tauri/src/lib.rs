@@ -95,11 +95,13 @@ fn sync_view_checks<R: Runtime>(
     source: bool,
     focus: bool,
     typewriter: bool,
+    panel: String,
 ) -> Result<(), String> {
     let state = menu::ViewState {
         source,
         focus,
         typewriter,
+        panel: menu::Panel::from_id(&panel),
     };
     *app
         .state::<ViewChecks>()

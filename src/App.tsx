@@ -102,7 +102,7 @@ const SHORTCUTS = `文件
   F8          专注模式
   F9          打字机模式
   ⌘⇧L         显示／隐藏侧边栏
-  ⌃⌘1 / ⌃⌘2 / ⌃⌘3  大纲 / 文档列表 / 文件树
+  ⌃⌘1 / ⌃⌘2 / ⌃⌘3  大纲 / 文件列表 / 文件树
   ⌘⇧F         搜索`;
 
 const ZOOM_STEPS = [0.5, 0.67, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2, 2.5, 3];
@@ -219,6 +219,36 @@ function revealInTree(): void {
       `[data-path="${CSS.escape(tab.path!)}"]`,
     );
     row?.scrollIntoView({ block: "nearest" });
+  }, 80);
+}
+
+/** Show the file list and scroll the active document into view. */
+function revealInList(): void {
+  const ui = useUi.getState();
+  const workspace = useWorkspace.getState();
+  const tab = activeTabInfo();
+  if (!tab?.path) {
+    ui.flash("该文件尚未保存到磁盘");
+    return;
+  }
+  ui.setSidebarTab("articles");
+  const root = workspace.root;
+  if (!root) {
+    ui.flash("请先打开一个文件夹");
+    return;
+  }
+  if (!samePath(dirname(tab.path), root)) {
+    ui.flash("该文件不在当前文件夹的顶层，请用文件树");
+    return;
+  }
+  window.setTimeout(() => {
+    const rows = document.querySelectorAll<HTMLElement>(".article-row");
+    for (const row of rows) {
+      if (row.dataset.path === tab.path) {
+        row.scrollIntoView({ block: "nearest" });
+        return;
+      }
+    }
   }, 80);
 }
 
@@ -384,6 +414,9 @@ function applyMenuAction(action: string): void {
       return;
     case "file.info":
       showFileInfo();
+      return;
+    case "file.reveal-library":
+      revealInList();
       return;
     case "file.reveal-tree":
       revealInTree();
@@ -773,6 +806,8 @@ function applyMenuAction(action: string): void {
       ui.setSidebarTab("outline");
       return;
     case "view.panel.articles":
+      ui.setSidebarTab("articles");
+      return;
     case "view.panel.files":
       ui.setSidebarTab("files");
       return;
@@ -830,6 +865,7 @@ export default function App() {
   const imageRoot = useSettings((state) => state.imageRoot);
   const setDark = useUi((state) => state.setDark);
   const sidebarVisible = useUi((state) => state.sidebarVisible);
+  const sidebarTab = useUi((state) => state.sidebarTab);
   const focusMode = useUi((state) => state.focusMode);
   const sourceMode = useUi((state) => state.sourceMode);
   const typewriterMode = useUi((state) => state.typewriterMode);
@@ -936,8 +972,9 @@ graph TD
       source: sourceMode,
       focus: focusMode,
       typewriter: typewriterMode,
+      panel: sidebarTab,
     }).catch(() => undefined);
-  }, [sourceMode, focusMode, typewriterMode]);
+  }, [sourceMode, focusMode, typewriterMode, sidebarTab]);
 
   useEffect(() => {
     if (!isTauri()) return;
@@ -950,6 +987,7 @@ graph TD
           source: state.sourceMode,
           focus: state.focusMode,
           typewriter: state.typewriterMode,
+          panel: state.sidebarTab,
         }).catch(() => undefined);
       })
       .then((unlisten) => {

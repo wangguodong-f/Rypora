@@ -3,12 +3,36 @@ use tauri::menu::{
 };
 use tauri::{AppHandle, Runtime};
 
+/// Sidebar panel that is currently showing, mirrored by the check marks in the
+/// **View** menu.
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub enum Panel {
+    Outline,
+    Articles,
+    #[default]
+    Files,
+    Search,
+}
+
+impl Panel {
+    /// Map the identifier the frontend sends over IPC.
+    pub fn from_id(id: &str) -> Self {
+        match id {
+            "outline" => Panel::Outline,
+            "articles" => Panel::Articles,
+            "search" => Panel::Search,
+            _ => Panel::Files,
+        }
+    }
+}
+
 /// Toggle state mirrored by the check marks in the **View** menu.
 #[derive(Clone, Copy, Default)]
 pub struct ViewState {
     pub source: bool,
     pub focus: bool,
     pub typewriter: bool,
+    pub panel: Panel,
 }
 
 /// An available menu item.
@@ -140,7 +164,12 @@ fn file_menu<R: Runtime>(
         )?)
         .separator()
         .item(&it(app, "file.info", "显示简介…", None)?)
-        .item(&dim(app, "file.reveal-library", "在文档列表中显示", None)?)
+        .item(&it(
+            app,
+            "file.reveal-library",
+            "在文件列表中显示",
+            None,
+        )?)
         .item(&it(app, "file.reveal-tree", "在文件树中显示", None)?)
         .item(&it(app, "file.reveal-finder", "打开文件位置", None)?)
         .separator()
@@ -831,28 +860,32 @@ fn view_menu<R: Runtime>(
             "显示／隐藏侧边栏",
             Some("CmdOrCtrl+Shift+L"),
         )?)
-        .item(&it(
+        .item(&check(
             app,
             "view.panel.outline",
             "大纲",
+            view.panel == Panel::Outline,
             Some("Control+CmdOrCtrl+1"),
         )?)
-        .item(&it(
+        .item(&check(
             app,
             "view.panel.articles",
-            "文档列表",
+            "文件列表",
+            view.panel == Panel::Articles,
             Some("Control+CmdOrCtrl+2"),
         )?)
-        .item(&it(
+        .item(&check(
             app,
             "view.panel.files",
             "文件树",
+            view.panel == Panel::Files,
             Some("Control+CmdOrCtrl+3"),
         )?)
-        .item(&it(
+        .item(&check(
             app,
             "view.panel.search",
             "搜索",
+            view.panel == Panel::Search,
             Some("CmdOrCtrl+Shift+F"),
         )?)
         .separator()
@@ -985,6 +1018,10 @@ pub fn apply_view_checks<R: Runtime>(
         ("view.source-mode", view.source),
         ("view.focus-mode", view.focus),
         ("view.typewriter-mode", view.typewriter),
+        ("view.panel.outline", view.panel == Panel::Outline),
+        ("view.panel.articles", view.panel == Panel::Articles),
+        ("view.panel.files", view.panel == Panel::Files),
+        ("view.panel.search", view.panel == Panel::Search),
     ] {
         if let Some(MenuItemKind::Check(item)) = find(&items, id) {
             item.set_checked(checked)?;

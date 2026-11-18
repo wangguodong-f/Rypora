@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import type { OutlineItem, SelectionInfo } from "../lib/types";
 
-export type SidebarTab = "files" | "outline" | "search";
+export type SidebarTab = "files" | "articles" | "outline" | "search";
 
 export type UnsavedChoice = "save" | "discard" | "cancel";
 

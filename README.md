@@ -35,8 +35,8 @@ by the Rust backend.
 - Mermaid diagrams previewed live inside the document, and rendered to SVG on export
 - Syntax highlighting in code fences (Rust, TypeScript/JavaScript, Python, Go, Java,
   C/C++, SQL, JSON, YAML, Bash, and more) via Prism / refractor
-- Multi-tab editing, a workspace file tree, a document outline, workspace search, and
-  in-document find & replace
+- Multi-tab editing, a workspace file tree, a flat file list of the open folder, a
+  document outline, workspace search, and in-document find & replace
 - Multi-window editing (⌘⇧N); each window owns its tabs, and menu commands act on the
   focused window
 - Quick Open (⌘⇧O) fuzzy-searches open tabs, recent files and the workspace; a
@@ -58,6 +58,12 @@ by the Rust backend.
   a `-1` suffix is added)
 - File tree operations: create file/folder, rename, delete (moves to the system Trash);
   **File → Delete** moves the active document to the Trash
+- Two file panels in the sidebar: the **file tree** shows the whole folder hierarchy
+  with every file and subfolder, while the **file list** shows only the documents that
+  sit directly in the open folder, as a flat alphabetical list (subfolders are left to
+  the file tree). **View → Outline / File List / File Tree / Search** switches panels
+  and check-marks the active one; **File → Show in File List** jumps to the active
+  document
 - Autosave with a configurable debounce, plus external-change detection and conflict
   prompts (mtime + BLAKE3)
 - Atomic writes (temporary file + rename) so a crash never leaves a half-written document
@@ -235,7 +241,7 @@ greyed out.
 | Toggle sidebar | ⌘⇧L |
 | Focus mode | F8 |
 | Typewriter mode | F9 |
-| Outline / documents / file tree | ⌃⌘1 / ⌃⌘2 / ⌃⌘3 |
+| Outline / file list / file tree | ⌃⌘1 / ⌃⌘2 / ⌃⌘3 |
 | Search | ⌘⇧F |
 | Actual size | ⌘⇧0 |
 | Zoom in / out | ⌘⇧= / ⌘⇧- |
@@ -261,8 +267,8 @@ app-icon.png              App icon source (1024×1024), input for `tauri icon`
 app-icon.svg              Editable icon artwork
 src/                      React frontend
   App.tsx                 Layout, menu/drag-drop/open-file wiring, autosave
-  components/             Title bar, tabs, sidebar, file tree, outline, search,
-                          status bar, find bar, quick open, settings and dialogs
+  components/             Title bar, tabs, sidebar, file tree, file list, outline,
+                          search, status bar, find bar, quick open, settings and dialogs
   editor/                 Milkdown setup and custom plugins
     EditorPane.tsx        Editor instance, plugin composition, outline/selection
     extensions.ts         Underline/highlight/super/subscript, comments, alerts,

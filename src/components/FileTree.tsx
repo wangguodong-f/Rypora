@@ -7,7 +7,14 @@ import {
   renamePath,
 } from "../lib/ipc";
 import { errorMessage } from "../lib/errors";
-import { basename, dirname, joinPath, samePath } from "../lib/paths";
+import {
+  basename,
+  dirname,
+  ensureMarkdownExtension,
+  joinPath,
+  OPENABLE_FILE,
+  samePath,
+} from "../lib/paths";
 import type { FileNode } from "../lib/types";
 import { useTabs } from "../stores/tabs";
 import { useUi } from "../stores/ui";
@@ -22,18 +29,10 @@ import {
   IconRefresh,
 } from "./Icons";
 
-const OPENABLE = /\.(md|markdown|mdx|txt)$/i;
-
 interface MenuState {
   x: number;
   y: number;
   node: FileNode | null;
-}
-
-function ensureMarkdown(name: string): string {
-  if (!name) return name;
-  if (/\.[A-Za-z0-9]+$/.test(name)) return name;
-  return `${name}.md`;
 }
 
 export function FileTree() {
@@ -79,7 +78,7 @@ export function FileTree() {
     const prompt = useUi.getState().prompt;
     const name = await prompt(isDir ? "新建文件夹名称" : "新建文件名称", "");
     if (!name?.trim()) return;
-    const finalName = isDir ? name.trim() : ensureMarkdown(name.trim());
+    const finalName = isDir ? name.trim() : ensureMarkdownExtension(name.trim());
     const path = joinPath(targetDir, finalName);
     try {
       if (isDir) {
@@ -136,7 +135,7 @@ export function FileTree() {
   const renderNode = (node: FileNode, depth: number) => {
     const isOpen = expanded[node.path] ?? false;
     const isActive = !!activePath && samePath(activePath, node.path);
-    const openable = node.isDir || OPENABLE.test(node.name);
+    const openable = node.isDir || OPENABLE_FILE.test(node.name);
 
     return (
       <div key={node.path}>
@@ -274,7 +273,7 @@ export function FileTree() {
           )}
           {menu.node && (
             <>
-              {!menu.node.isDir && OPENABLE.test(menu.node.name) && (
+              {!menu.node.isDir && OPENABLE_FILE.test(menu.node.name) && (
                 <button
                   onClick={() => {
                     const node = menu.node;
