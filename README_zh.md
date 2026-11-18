@@ -60,8 +60,8 @@ Rypora 直接在同一个所见即所得画布里编辑纯 Markdown：没有分�
 
 - 三种界面模式（跟随系统、浅色、深色），外加 Typora 的六套主题：Github、Gothic、
   Newsprint、Night、Pixyll、Whitey；Night 属于深色主题，共用深色语法配色
-- 专注模式、打字机模式（光标始终停在编辑区垂直中线）与源代码模式；**显示** 菜单用
-  对钩标出当前已开启的模式
+- 专注模式、打字机模式（光标始终停在编辑区垂直中线）与源代码模式，三者可任意组合
+  同时生效；**显示** 菜单用对钩标出当前已开启的模式
 - 可调字号、行宽、侧边栏显隐与拼写检查
 - 设置跨启动持久化
 - 导出为自包含的 HTML（内联 KaTeX 样式、Mermaid 渲染为 SVG、重新应用语法高亮），
@@ -258,6 +258,7 @@ src/                      React 前端
     tasks.ts              任务列表渲染与勾选
     highlight.ts          共享的 Prism / refractor 配置
     focus.ts              专注模式与打字机模式
+    sourceModes.ts        源代码模式下的专注 / 打字机支持
     commands.ts           格式化、表格、图片与选区命令
   lib/                    IPC 封装、文件操作、导出、导入（HTML → Markdown）、
                           模糊匹配、Markdown 比较、路径、剪贴板、自测
@@ -302,6 +303,8 @@ src-tauri/                Rust 后端
 - 警告框显示为带颜色的块，正文仍保存为 `> [!KIND]` 引用块。
 - 脚注复用 GFM 的 `footnote_reference` / `footnote_definition`，插入时自动追加定义。
 - 源代码模式把同一份 `tab.content` 放进纯文本区域，保存路径与所见即所得视图一致。
+  专注模式与打字机模式在该模式下同样生效：当前段落保持清晰，其余段落变淡，光标始终
+  停在垂直中线。
 
 ### 多窗口、最近文件与快速打开
 
@@ -414,7 +417,7 @@ npm run selftest
 
 - 公式编辑使用文本输入框，而不是专用公式编辑器。
 - Windows / Linux 构建尚未测试。
-- 主 JS chunk 约 1.35 MB（Milkdown、KaTeX、Prism），代码拆分仍待优化。
+- 主 JS chunk 约 1.4 MB（Milkdown、KaTeX、Prism），代码拆分仍待优化。
 - 源代码模式是纯文本区域，暂不做语法高亮。
 - 链接定义以只读块显示，修改地址需进入源代码模式。
 - 导入仅支持 Markdown、纯文本与 HTML；Word、LaTeX、ePub 需要 pandoc 等外部转换器，

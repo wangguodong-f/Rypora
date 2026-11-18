@@ -72,7 +72,8 @@ by the Rust backend.
   Newsprint, Night, Pixyll and Whitey; Night is a dark theme and shares the dark syntax
   tokens
 - Focus mode, typewriter mode (the caret stays on the vertical centre of the editor)
-  and source mode; the **View** menu shows a check mark for each active mode
+  and source mode, usable together in any combination; the **View** menu shows a check
+  mark for each active mode
 - Adjustable font size, line width, sidebar visibility and spellcheck
 - Settings persist across launches
 - Export to a self-contained HTML file (KaTeX CSS inlined, Mermaid rendered to SVG,
@@ -272,6 +273,7 @@ src/                      React frontend
     tasks.ts              Task list rendering and toggling
     highlight.ts          Shared Prism/refractor setup
     focus.ts              Focus and typewriter modes
+    sourceModes.ts        Focus/typewriter support for the source textarea
     commands.ts           Formatting, table, image and selection commands
   lib/                    IPC wrappers, file actions, export, import (HTML → Markdown),
                           fuzzy matching, Markdown comparison, paths, clipboard, self-test
@@ -322,7 +324,8 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
 - Footnotes reuse GFM's `footnote_reference` / `footnote_definition`; inserting one appends
   its definition at the end of the document.
 - Source mode puts the same `tab.content` into a plain textarea, so saving behaves exactly
-  like the WYSIWYG view.
+  like the WYSIWYG view. Focus and typewriter modes keep working there: the current
+  paragraph stays opaque while the rest fades, and the caret stays on the vertical centre.
 
 ### Windows, recent files and quick open
 
@@ -445,7 +448,7 @@ Unicode offsets) and rename. It writes a JSON report to
 
 - Equation editing uses a text prompt rather than a dedicated equation editor.
 - Windows and Linux builds are untested.
-- The main JS chunk is about 1.35 MB (Milkdown, KaTeX and Prism); code splitting is a
+- The main JS chunk is about 1.4 MB (Milkdown, KaTeX and Prism); code splitting is a
   pending optimisation.
 - Source mode is a plain textarea without syntax highlighting.
 - Link definitions render as a read-only block; edit their URL in source mode.

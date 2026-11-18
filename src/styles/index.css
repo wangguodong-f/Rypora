@@ -2205,11 +2205,15 @@ select {
   background: var(--bg);
 }
 
-.source-textarea {
-  display: block;
+.source-sheet {
   width: 100%;
   max-width: var(--editor-width);
   margin: 0 auto;
+}
+
+.source-textarea {
+  display: block;
+  width: 100%;
   padding: 0;
   resize: none;
   overflow: hidden;
