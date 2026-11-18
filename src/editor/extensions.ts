@@ -13,15 +13,65 @@ interface MdNode {
   type: string;
   value?: string;
   children?: MdNode[];
+  tag?: string;
+  open?: string;
+  close?: string;
+  style?: string;
+  href?: string;
   [key: string]: unknown;
 }
 
-const TAG_TYPES: Record<string, string> = {
-  u: "underline",
-  ins: "underline",
-  sup: "superscript",
-  sub: "subscript",
-};
+/**
+ * Inline HTML supported by Typora's live preview. Each tag keeps its original
+ * opening/closing text so saving never silently rewrites `<b>` into `**bold**`.
+ */
+const HTML_INLINE_TAGS = [
+  "a",
+  "abbr",
+  "acronym",
+  "b",
+  "big",
+  "button",
+  "cite",
+  "code",
+  "data",
+  "del",
+  "dfn",
+  "em",
+  "font",
+  "i",
+  "ins",
+  "kbd",
+  "mark",
+  "meter",
+  "progress",
+  "q",
+  "ruby",
+  "s",
+  "samp",
+  "small",
+  "span",
+  "strike",
+  "strong",
+  "sub",
+  "sup",
+  "time",
+  "tt",
+  "u",
+  "var",
+  "svg",
+] as const;
+
+const HTML_INLINE_PATTERN = HTML_INLINE_TAGS.join("|");
+const HTML_INLINE_OPEN = new RegExp(
+  `^<(${HTML_INLINE_PATTERN})(?:\\s[^>]*)?>$`,
+  "i",
+);
+const HTML_INLINE_CLOSE = new RegExp(
+  `^</(${HTML_INLINE_PATTERN})\\s*>$`,
+  "i",
+);
+const HTML_VOID = /^<(?:br|wbr)\s*\/?>$/i;
 
 const BLOCK_CONTAINERS = new Set([
   "root",
@@ -58,6 +108,12 @@ type InlineToken =
       raw: string;
       side?: "open" | "close";
       pair?: number;
+      key?: string;
+      tag?: string;
+      open?: string;
+      close?: string;
+      style?: string;
+      href?: string;
     };
 
 /** Split text into delimiter tokens and text runs. */
@@ -79,14 +135,24 @@ function tokenizeText(value: string, tokens: InlineToken[]): void {
   while (index < value.length) {
     if (value[index] === "=" && value[index + 1] === "=") {
       flush();
-      tokens.push({ kind: "delim", type: "highlight", raw: "==" });
+      tokens.push({
+        kind: "delim",
+        type: "highlight",
+        key: "highlight",
+        raw: "==",
+      });
       index += 2;
       continue;
     }
 
     if (value[index] === "^" && tight(index)) {
       flush();
-      tokens.push({ kind: "delim", type: "superscript", raw: "^" });
+      tokens.push({
+        kind: "delim",
+        type: "superscript",
+        key: "superscript",
+        raw: "^",
+      });
       index += 1;
       continue;
     }
@@ -97,7 +163,12 @@ function tokenizeText(value: string, tokens: InlineToken[]): void {
       tight(index)
     ) {
       flush();
-      tokens.push({ kind: "delim", type: "subscript", raw: "~" });
+      tokens.push({
+        kind: "delim",
+        type: "subscript",
+        key: "subscript",
+        raw: "~",
+      });
       index += 1;
       continue;
     }
@@ -125,6 +196,132 @@ function imageAttr(source: string, name: string): string {
   ).exec(source);
   if (!match) return "";
   return decodeEntities(match[2] ?? match[3] ?? match[4] ?? "");
+}
+
+const COLOR_VALUE =
+  /^(?:#[0-9a-fA-F]{3,8}|rgba?\([^()]*\)|hsla?\([^()]*\)|[a-zA-Z]+)$/;
+const LENGTH_VALUE =
+  /^(?:\d+(?:\.\d+)?)(?:px|pt|em|rem|%|vw|vh|ex|ch)?$|^[a-z-]+$/;
+const FAMILY_VALUE = /^[A-Za-z0-9 ,'"_-]+$/;
+const FONT_SIZES = ["10px", "12px", "14px", "16px", "18px", "24px", "32px"];
+
+function safeCssValue(property: string, value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed || /(?:url|expression|javascript|behavior)/i.test(trimmed)) {
+    return null;
+  }
+  switch (property.toLowerCase()) {
+    case "color":
+    case "background-color":
+      return COLOR_VALUE.test(trimmed) ? trimmed : null;
+    case "font-size":
+      return LENGTH_VALUE.test(trimmed) ? trimmed : null;
+    case "font-family":
+      return FAMILY_VALUE.test(trimmed) ? trimmed : null;
+    case "font-weight":
+      return /^(?:normal|bold|lighter|bolder|[1-9]00)$/.test(trimmed)
+        ? trimmed
+        : null;
+    case "font-style":
+      return /^(?:normal|italic|oblique)$/.test(trimmed) ? trimmed : null;
+    case "text-decoration":
+      return /^(?:none|underline|overline|line-through)$/.test(trimmed)
+        ? trimmed
+        : null;
+    default:
+      return null;
+  }
+}
+
+function baseInlineStyle(tag: string): Record<string, string> {
+  switch (tag) {
+    case "a":
+      return { color: "#0645ad", "text-decoration": "underline" };
+    case "b":
+    case "strong":
+      return { "font-weight": "bold" };
+    case "i":
+    case "em":
+    case "cite":
+    case "dfn":
+    case "var":
+      return { "font-style": "italic" };
+    case "del":
+    case "s":
+    case "strike":
+      return { "text-decoration": "line-through" };
+    case "u":
+    case "ins":
+      return { "text-decoration": "underline" };
+    case "mark":
+      return { "background-color": "#fff3a3" };
+    case "abbr":
+    case "acronym":
+      return { "text-decoration": "underline dotted" };
+    case "button":
+      return {
+        "font-family": "inherit",
+        "font-size": "inherit",
+        padding: "0.1em 0.3em",
+        border: "1px solid #ccc",
+      };
+    case "code":
+    case "kbd":
+    case "samp":
+    case "tt":
+      return {
+        "font-family": "monospace",
+        "background-color": "#f5f5f5",
+        "font-size": "0.92em",
+      };
+    case "small":
+      return { "font-size": "0.82em" };
+    case "big":
+      return { "font-size": "1.18em" };
+    case "sup":
+      return { "vertical-align": "super", "font-size": "0.82em" };
+    case "sub":
+      return { "vertical-align": "sub", "font-size": "0.82em" };
+    default:
+      return {};
+  }
+}
+
+function safeHref(value: string): string {
+  const href = value.trim();
+  if (!href) return "";
+  if (/^(?:https?:\/\/|mailto:|tel:|#|\/|\.\.?\/)/i.test(href)) return href;
+  // Relative `page.html` is fine; other schemes (javascript:, data:, …) are not.
+  return /^[a-z][a-z0-9+.-]*:/i.test(href) ? "" : href;
+}
+
+/** Build safe inline CSS for a Typora-compatible HTML tag. */
+function htmlInlineStyle(openTag: string): string {
+  const match = /^<([a-z][a-z0-9-]*)/i.exec(openTag.trim());
+  if (!match) return "";
+  const tag = match[1].toLowerCase();
+  const rules = baseInlineStyle(tag);
+
+  for (const declaration of imageAttr(openTag, "style").split(";")) {
+    const separator = declaration.indexOf(":");
+    if (separator < 0) continue;
+    const property = declaration.slice(0, separator).trim().toLowerCase();
+    const value = safeCssValue(property, declaration.slice(separator + 1));
+    if (value) rules[property] = value;
+  }
+
+  if (tag === "font") {
+    const color = safeCssValue("color", imageAttr(openTag, "color"));
+    const face = safeCssValue("font-family", imageAttr(openTag, "face"));
+    const size = Number(imageAttr(openTag, "size"));
+    if (color) rules.color = color;
+    if (face) rules["font-family"] = face;
+    if (size >= 1 && size <= 7) rules["font-size"] = FONT_SIZES[size - 1];
+  }
+
+  return Object.entries(rules)
+    .map(([property, value]) => `${property}:${value}`)
+    .join(";");
 }
 
 /** `<img src="…" style="zoom:50%;" />` → an image mdast node. */
@@ -161,22 +358,40 @@ function tokenizeInline(children: MdNode[], parent: MdNode): InlineToken[] {
         tokens.push({ kind: "node", node: image });
         continue;
       }
-      const open = /^<(u|ins|sup|sub)(?:\s[^>]*)?>$/i.exec(trimmed);
-      const close = /^<\/(u|ins|sup|sub)\s*>$/i.exec(trimmed);
+      if (HTML_VOID.test(trimmed)) {
+        tokens.push({
+          kind: "node",
+          node: { type: "htmlBreak", value: child.value },
+        });
+        continue;
+      }
+
+      const open = HTML_INLINE_OPEN.exec(trimmed);
+      const close = HTML_INLINE_CLOSE.exec(trimmed);
 
       if (open) {
+        const tag = open[1].toLowerCase();
         tokens.push({
           kind: "delim",
-          type: TAG_TYPES[open[1].toLowerCase()],
+          type: "htmlInline",
+          key: `html:${tag}`,
+          tag,
           raw: child.value,
+          open: child.value,
+          close: `</${tag}>`,
+          style: htmlInlineStyle(child.value),
+          href: tag === "a" ? safeHref(imageAttr(child.value, "href")) : "",
           side: "open",
         });
         continue;
       }
       if (close) {
+        const tag = close[1].toLowerCase();
         tokens.push({
           kind: "delim",
-          type: TAG_TYPES[close[1].toLowerCase()],
+          type: "htmlInline",
+          key: `html:${tag}`,
+          tag,
           raw: child.value,
           side: "close",
         });
@@ -213,10 +428,14 @@ function pairDelimiters(tokens: InlineToken[]): void {
       return;
     }
 
+    const key = token.key ?? token.type;
     let found = -1;
     for (let at = stack.length - 1; at >= 0; at -= 1) {
       const candidate = tokens[stack[at]];
-      if (candidate.kind === "delim" && candidate.type === token.type) {
+      if (
+        candidate.kind === "delim" &&
+        (candidate.key ?? candidate.type) === key
+      ) {
         found = at;
         break;
       }
@@ -231,7 +450,7 @@ function pairDelimiters(tokens: InlineToken[]): void {
     }
 
     const openIndex = stack[found];
-    stack.splice(found);
+    stack.splice(found, 1);
     const opener = tokens[openIndex];
     if (opener.kind !== "delim") return;
 
@@ -248,9 +467,13 @@ function pairDelimiters(tokens: InlineToken[]): void {
       return;
     }
 
-    // Superscript/subscript do not span whitespace, so paths such as
-    // `file~1 and file~2` are not mistaken for subscript.
-    if (token.type === "superscript" || token.type === "subscript") {
+    // Superscript/subscript Markdown syntax does not span whitespace, so paths
+    // such as `file~1 and file~2` are not mistaken for subscript. HTML tags do
+    // not have that restriction.
+    if (
+      opener.type === "superscript" ||
+      opener.type === "subscript"
+    ) {
       const spaced = tokens
         .slice(openIndex + 1, index)
         .some((item) => item.kind === "text" && /\s/.test(item.value));
@@ -261,6 +484,9 @@ function pairDelimiters(tokens: InlineToken[]): void {
 
     opener.pair = index;
     token.pair = openIndex;
+    if (token.side === "close" && opener.type === "htmlInline") {
+      opener.close = token.raw;
+    }
   });
 }
 
@@ -299,7 +525,19 @@ function buildInline(
 
     if (token.pair !== undefined && token.pair > index) {
       const children = buildInline(tokens, index + 1, token.pair);
-      out.push({ type: token.type, children });
+      out.push({
+        type: token.type,
+        children,
+        ...(token.type === "htmlInline"
+          ? {
+              tag: token.tag,
+              open: token.open,
+              close: token.close,
+              style: token.style,
+              href: token.href,
+            }
+          : {}),
+      });
       index = token.pair + 1;
       continue;
     }
@@ -421,6 +659,25 @@ export const HANDLERS = {
   },
   subscript(node: MdNode, _parent: unknown, state: never, info: unknown) {
     return delimiter(node, state as never, info, "~");
+  },
+  htmlBreak(node: MdNode) {
+    return String(node.value ?? "<br>");
+  },
+  htmlInline(node: MdNode, _parent: unknown, state: never, info: unknown) {
+    const typed = state as never as {
+      enter: (name: string) => () => void;
+      containerPhrasing: (node: MdNode, info: unknown) => string;
+    };
+    const open = String(node.open ?? `<${node.tag ?? "span"}>`);
+    const close = String(node.close ?? `</${node.tag ?? "span"}>`);
+    const exit = typed.enter("htmlInline");
+    const value = typed.containerPhrasing(node, {
+      ...(info as Record<string, unknown>),
+      before: open,
+      after: close,
+    });
+    exit();
+    return `${open}${value}${close}`;
   },
   comment(node: MdNode) {
     return `<!--${node.value ?? ""}-->`;
@@ -618,6 +875,130 @@ function simpleMark(id: string, tag: string) {
     },
   }));
 }
+
+/**
+ * A nestable inline node for Typora-compatible HTML. A mark cannot contain
+ * another mark of the same type, so nested `<b><span>…</span></b>` needs a node
+ * with inline content. The original tags are kept in attributes so the Markdown
+ * serializer can restore exactly what was read.
+ */
+export const htmlInlineSchema = $node("htmlInline", () => ({
+  group: "inline",
+  inline: true,
+  content: "inline*",
+  attrs: {
+    tag: { default: "span" },
+    open: { default: "<span>" },
+    close: { default: "</span>" },
+    style: { default: "" },
+    href: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: "span[data-html-inline]",
+      getAttrs: (dom: HTMLElement) => ({
+        tag: dom.dataset.tag ?? "span",
+        open: dom.dataset.open ?? `<${dom.dataset.tag ?? "span"}>`,
+        close: dom.dataset.close ?? `</${dom.dataset.tag ?? "span"}>`,
+        style: dom.getAttribute("style") ?? "",
+        href: safeHref(dom.getAttribute("href") ?? ""),
+      }),
+    },
+    {
+      tag: "a[data-html-inline]",
+      getAttrs: (dom: HTMLElement) => ({
+        tag: dom.dataset.tag ?? "a",
+        open: dom.dataset.open ?? "<a>",
+        close: dom.dataset.close ?? "</a>",
+        style: dom.getAttribute("style") ?? "",
+        href: safeHref(dom.getAttribute("href") ?? ""),
+      }),
+    },
+  ],
+  toDOM: (node) => {
+    const tag = String(node.attrs.tag ?? "span");
+    const attrs: Record<string, string> = {
+      "data-html-inline": "",
+      "data-tag": tag,
+      "data-open": String(node.attrs.open ?? ""),
+      "data-close": String(node.attrs.close ?? ""),
+      style: String(node.attrs.style ?? ""),
+    };
+    if (tag === "a") {
+      const href = safeHref(String(node.attrs.href ?? ""));
+      if (href) attrs.href = href;
+    }
+    return [tag === "a" ? "a" : "span", attrs, 0];
+  },
+  parseMarkdown: {
+    match: (node) => node.type === "htmlInline",
+    runner: (state, node, type) => {
+      state
+        .openNode(type, {
+          tag: String(node.tag ?? "span"),
+          open: String(node.open ?? ""),
+          close: String(node.close ?? ""),
+          style: String(node.style ?? ""),
+          href: safeHref(String(node.href ?? "")),
+        })
+        .next(node.children)
+        .closeNode();
+    },
+  },
+  toMarkdown: {
+    match: (node) => node.type.name === "htmlInline",
+    runner: (state, node) => {
+      state
+        .openNode("htmlInline", void 0, {
+          tag: String(node.attrs.tag ?? "span"),
+          open: String(node.attrs.open ?? ""),
+          close: String(node.attrs.close ?? ""),
+        })
+        .next(node.content)
+        .closeNode();
+    },
+  },
+}));
+
+/** `<br>` / `<wbr>` kept as their original HTML while rendering as line breaks. */
+export const htmlBreakSchema = $node("htmlBreak", () => ({
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: true,
+  attrs: { value: { default: "<br>" } },
+  parseDOM: [
+    {
+      tag: "br[data-html-break]",
+      getAttrs: (dom: HTMLElement) => ({
+        value: dom.getAttribute("data-html-break") ?? "<br>",
+      }),
+    },
+    {
+      tag: "wbr[data-html-break]",
+      getAttrs: (dom: HTMLElement) => ({
+        value: dom.getAttribute("data-html-break") ?? "<wbr>",
+      }),
+    },
+  ],
+  toDOM: (node) => {
+    const value = String(node.attrs.value ?? "<br>");
+    const tag = /^<wbr/i.test(value) ? "wbr" : "br";
+    return [tag, { "data-html-break": value }];
+  },
+  parseMarkdown: {
+    match: ({ type }) => type === "htmlBreak",
+    runner: (state, node, type) => {
+      state.addNode(type, { value: String(node.value ?? "<br>") });
+    },
+  },
+  toMarkdown: {
+    match: (node) => node.type.name === "htmlBreak",
+    runner: (state, node) => {
+      state.addNode("html", void 0, String(node.attrs.value ?? "<br>"));
+    },
+  },
+}));
 
 export const highlightSchema = simpleMark("highlight", "mark");
 export const superscriptSchema = simpleMark("superscript", "sup");

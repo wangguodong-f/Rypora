@@ -28,6 +28,8 @@ Rypora 直接在同一个所见即所得画布里编辑纯 Markdown：没有分�
   围栏代码块、分割线
 - Typora 风格扩展语法：下划线、高亮、上标、下标、行内／块级注释、五种警告框、
   链接引用与脚注，均按原样读写为普通 Markdown
+- 兼容 Typora 的行内 HTML（`<b>`、`<span>`、`<font>`、`<br>`、`<kbd>`、`<mark>`、
+  `<del>`、`<a>` 等）：正文里实时显示样式，保存时保留原始标签与属性
 - 源代码模式（⌘/）直接编辑 Markdown 原文，与所见即所得视图共用同一份内容
 - 行内公式（`$…$`）与块级公式（`$$…$$`）由 KaTeX 渲染，双击公式即可修改
 - Mermaid 图表在文档中实时预览，导出时渲染为 SVG
@@ -304,6 +306,14 @@ src-tauri/                Rust 后端
 再为每种语法注册 ProseMirror mark 或节点，以及一对配套的 `toMarkdown` handler 写回
 `<u>…</u>`、`==…==`、`^…^`、`~…~`、`<!--…-->`、`> [!NOTE]` 和链接定义等原文：
 
+- Typora 识别的行内 HTML 标签（`em`、`strong`、`small`、`big`、`s`、`strike`、`cite`、
+  `q`、`dfn`、`abbr`、`data`、`time`、`code`、`var`、`samp`、`kbd`、`sub`、`sup`、`i`、
+  `b`、`mark`、`ruby`、`span`、`ins`、`del`、`button`、`font`、`acronym`、`tt`、
+  `progress`、`meter`、`svg`、`a`）统一由可嵌套的行内节点处理，起始与结束标签保存在节点
+  属性里，因此 `<b><span>…</span></b>` 这类嵌套结构在保存后仍保持原样，不会被拆开或改写；`br` 与 `wbr`
+  作为行内原子节点保留原始写法。
+- 块级 HTML 保留为原始 Markdown 文本；Typora 同样把 HTML 块当作源码块，而不是转成
+  所见即所得 DOM。
 - 扩展语法只影响编辑器内部表示，磁盘上仍是普通 Markdown，其他编辑器也能读取。
 - 为让 `~x~` 表示下标，GFM 的 `singleTilde` 被关闭；`~~x~~` 仍是删除线。
 - 警告框显示为带颜色的块，正文仍保存为 `> [!KIND]` 引用块。

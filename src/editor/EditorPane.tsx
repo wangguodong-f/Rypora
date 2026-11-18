@@ -32,6 +32,8 @@ import {
   alertSchema,
   commentSchema,
   highlightSchema,
+  htmlBreakSchema,
+  htmlInlineSchema,
   linkDefinitionSchema,
   linkRefRemark,
   linkRefSchema,
@@ -165,6 +167,8 @@ function EditorHost({
       .use(mathBlockView)
       .use(richRemark)
       .use(underlineSchema)
+      .use(htmlInlineSchema)
+      .use(htmlBreakSchema)
       .use(highlightSchema)
       .use(superscriptSchema)
       .use(subscriptSchema)
