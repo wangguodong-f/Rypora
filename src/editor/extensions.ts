@@ -1215,58 +1215,14 @@ function renderHtmlBlock(source: string): HTMLElement {
   return dom;
 }
 
-function highlightedHtmlCode(source: string): HTMLElement {
-  const code = document.createElement("code");
-  code.className = "language-html";
-  code.contentEditable = "true";
-  code.spellcheck = false;
+/** Paint syntax-highlighted HTML into the (non-editable) overlay layer. */
+function paintHtmlCode(code: HTMLElement, source: string): void {
   try {
-    code.appendChild(hastToDom(getRefractor().highlight(source || " ", "html")));
+    const highlighted = hastToDom(getRefractor().highlight(source || " ", "html"));
+    code.replaceChildren(...Array.from(highlighted.childNodes));
   } catch {
     code.textContent = source;
   }
-  return code;
-}
-
-function caretOffset(root: HTMLElement): number | null {
-  const selection = window.getSelection();
-  if (!selection || !selection.anchorNode || !root.contains(selection.anchorNode)) {
-    return null;
-  }
-  const range = document.createRange();
-  range.selectNodeContents(root);
-  try {
-    range.setEnd(selection.anchorNode, selection.anchorOffset);
-  } catch {
-    return null;
-  }
-  return range.toString().length;
-}
-
-function restoreCaret(root: HTMLElement, offset: number): void {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let remaining = offset;
-  let node = walker.nextNode() as Text | null;
-  let target: Text | null = null;
-  let targetOffset = 0;
-  while (node) {
-    const length = node.data.length;
-    if (remaining <= length) {
-      target = node;
-      targetOffset = remaining;
-      break;
-    }
-    remaining -= length;
-    node = walker.nextNode() as Text | null;
-  }
-  const selection = window.getSelection();
-  if (!selection) return;
-  const range = document.createRange();
-  if (target) range.setStart(target, targetOffset);
-  else range.selectNodeContents(root);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
 }
 
 /** A single block-level HTML element, edited as an HTML source code block. */
@@ -1302,7 +1258,9 @@ function createHtmlBlockView(): NodeViewConstructor {
   return (node, view, getPos) => {
     let source = String(node.attrs.value ?? "");
     let editing = false;
+    let activeInput: HTMLTextAreaElement | null = null;
     const dom = renderHtmlBlock(source);
+    dom.tabIndex = 0;
 
     const commit = (value: string) => {
       source = value;
@@ -1311,13 +1269,13 @@ function createHtmlBlockView(): NodeViewConstructor {
       view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { value }));
     };
 
-    const updatePreview = (preview: HTMLElement, value: string) => {
-      preview.replaceChildren(...Array.from(renderHtmlBlock(value).childNodes));
-    };
-
     const leaveEdit = () => {
       if (!editing) return;
+      // Persist whatever is in the textarea, including an in-flight IME
+      // composition that never emitted a final commit.
+      if (activeInput && activeInput.value !== source) commit(activeInput.value);
       editing = false;
+      activeInput = null;
       delete dom.dataset.editing;
       dom.replaceChildren(...Array.from(renderHtmlBlock(source).childNodes));
       view.focus();
@@ -1331,47 +1289,71 @@ function createHtmlBlockView(): NodeViewConstructor {
       dom.dataset.editing = "true";
       dom.replaceChildren();
 
-      const label = document.createElement("div");
-      label.className = "md-html-source-label";
-      label.textContent = "HTML";
+      const wrap = document.createElement("div");
+      wrap.className = "md-html-source-wrap";
 
       const pre = document.createElement("pre");
-      pre.className = "md-html-source";
-      const code = highlightedHtmlCode(source);
+      pre.className = "md-html-highlight";
+      pre.setAttribute("aria-hidden", "true");
+      const code = document.createElement("code");
+      code.className = "language-html";
       pre.appendChild(code);
 
-      const preview = document.createElement("div");
-      preview.className = "md-html-preview";
-      updatePreview(preview, source);
+      const input = document.createElement("textarea");
+      input.className = "md-html-source-input";
+      input.spellcheck = false;
+      input.value = source;
 
-      dom.append(label, pre, preview);
+      const autoSize = () => {
+        input.style.height = "auto";
+        input.style.height = `${input.scrollHeight}px`;
+      };
 
-      code.addEventListener("input", () => {
-        const next = code.textContent ?? "";
-        const offset = caretOffset(code);
-        commit(next);
-        const highlighted = highlightedHtmlCode(next);
-        code.replaceChildren(...Array.from(highlighted.childNodes));
-        code.focus();
-        if (offset != null) restoreCaret(code, offset);
-        updatePreview(preview, next);
+      let composing = false;
+      input.addEventListener("compositionstart", () => {
+        composing = true;
+        wrap.classList.add("is-composing");
       });
-      code.addEventListener("keydown", (keyEvent) => {
+      input.addEventListener("compositionend", () => {
+        composing = false;
+        wrap.classList.remove("is-composing");
+        const next = input.value;
+        commit(next);
+        paintHtmlCode(code, next);
+        autoSize();
+      });
+      input.addEventListener("input", () => {
+        const next = input.value;
+        // Never rebuild the textarea itself — that would destroy the IME's
+        // composition text nodes and leave stray pinyin behind. Only the
+        // separate overlay is repainted. Intermediate composition values are
+        // not committed; compositionend writes the final text.
+        paintHtmlCode(code, next);
+        autoSize();
+        if (!composing) commit(next);
+      });
+      input.addEventListener("keydown", (keyEvent) => {
         if ((keyEvent.metaKey || keyEvent.ctrlKey) && keyEvent.key === "Enter") {
           keyEvent.preventDefault();
           leaveEdit();
         }
       });
-      code.addEventListener("blur", (blurEvent) => {
+      input.addEventListener("blur", (blurEvent) => {
         if (!dom.contains((blurEvent as FocusEvent).relatedTarget as Node | null)) {
           leaveEdit();
         }
       });
 
-      code.focus();
-      restoreCaret(code, source.length);
+      wrap.append(pre, input);
+      dom.appendChild(wrap);
+      paintHtmlCode(code, source);
+      autoSize();
+      activeInput = input;
+      input.focus();
+      input.setSelectionRange(source.length, source.length);
     };
 
+    dom.addEventListener("focus", enterEdit);
     dom.addEventListener("click", enterEdit);
 
     return {
@@ -1384,7 +1366,7 @@ function createHtmlBlockView(): NodeViewConstructor {
         dom.replaceChildren(...Array.from(renderHtmlBlock(source).childNodes));
         return true;
       },
-      // Let the click reach our own handler instead of being consumed by
+      // Let focus/click reach our handler instead of being consumed by
       // ProseMirror's NodeSelection logic on the atom node.
       stopEvent: (event) =>
         editing ||
@@ -1392,7 +1374,10 @@ function createHtmlBlockView(): NodeViewConstructor {
         event.type === "mouseup" ||
         event.type === "click",
       ignoreMutation: () => true,
-      destroy: () => dom.removeEventListener("click", enterEdit),
+      destroy: () => {
+        dom.removeEventListener("focus", enterEdit);
+        dom.removeEventListener("click", enterEdit);
+      },
     };
   };
 }

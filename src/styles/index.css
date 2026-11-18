@@ -1044,45 +1044,19 @@ select {
   display: none;
 }
 
-/* A block-level HTML element is one editor block. Clicking it swaps the
-   rendered result for an HTML source code block with a live preview. */
+/* A block-level HTML element is one editor block. On focus it becomes an
+   HTML source editor; while editing, the rendered result is not shown. */
 .milkdown .editor .md-html-block {
   margin: 0;
 }
 
 .milkdown .editor .md-html-block[data-editing] {
   margin: 0.62em 0;
-  padding: 10px 12px 12px;
+  padding: 6px;
   border: 1px solid var(--border-strong);
   border-radius: 9px;
-  background: var(--bg-subtle, var(--code-bg));
-}
-
-.md-html-source-label {
-  margin-bottom: 6px;
-  color: var(--muted, #888);
-  font-size: 0.72em;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.milkdown .editor .md-html-source {
-  margin: 0;
-  padding: 10px 12px;
-  white-space: pre-wrap;
-  overflow-x: auto;
-}
-
-.milkdown .editor .md-html-source code {
+  background: var(--code-bg);
   outline: none;
-  font-size: 0.84em;
-  caret-color: var(--accent);
-}
-
-.md-html-preview {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px dashed var(--border);
 }
 
 .milkdown .editor h1,
@@ -1236,6 +1210,67 @@ select {
   border: none;
   padding: 0;
   font-size: 0.86em;
+}
+
+/* HTML block source editor: a transparent textarea sits on top of a syntax
+   highlight overlay. The textarea's DOM is never rebuilt, so IME composition
+   works normally; the overlay only mirrors its text with colours. */
+.milkdown .editor .md-html-block .md-html-source-wrap {
+  position: relative;
+}
+
+.milkdown .editor .md-html-block .md-html-highlight,
+.milkdown .editor .md-html-block .md-html-source-input {
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  box-sizing: border-box;
+  font-family: var(--mono-font-family);
+  font-size: 0.84em;
+  font-weight: 400;
+  line-height: 1.55;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+  tab-size: 2;
+}
+
+.milkdown .editor .md-html-block .md-html-highlight {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: transparent;
+}
+
+.milkdown .editor .md-html-block .md-html-highlight code {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.milkdown .editor .md-html-block .md-html-source-input {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 3em;
+  resize: none;
+  overflow: hidden;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--accent);
+}
+
+/* During IME composition, show the textarea's own text and hide the overlay so
+   the in-progress pinyin is visible without doubling or stray characters. */
+.milkdown .editor .md-html-block .md-html-source-wrap.is-composing .md-html-highlight {
+  visibility: hidden;
+}
+
+.milkdown .editor .md-html-block .md-html-source-wrap.is-composing .md-html-source-input {
+  color: inherit;
 }
 
 .milkdown .editor img {

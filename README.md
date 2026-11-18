@@ -336,12 +336,12 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
   elements is editable directly in the rendered view; Markdown syntax there stays literal and
   the original text round-trips. `br` and `wbr` are inline atoms and keep their exact spelling.
 - Block-level HTML is one editor block, rendered with Typora's default styling (`<p>` margins,
-  `<h1>`–`<h6>` sizes, `<center>` alignment, `text-align`, colour and background). Clicking a
-  rendered block swaps it in place for a syntax-highlighted HTML source code block with a live
-  preview; edit the raw HTML and the preview updates as you type. Blur the block or press
-  ⌘/Ctrl+Enter to return to the rendered view. The whole raw block, including whitespace and
-  newlines, is written back verbatim. Nested tags, comments, `<br>`/`<wbr>`, safe
-  `href`/`style` values and unknown tags are preserved.
+  `<h1>`–`<h6>` sizes, `<center>` alignment, `text-align`, colour and background). Focusing a
+  rendered block swaps it in place for a syntax-highlighted HTML source editor (the rendered
+  view is hidden while editing); losing focus or pressing ⌘/Ctrl+Enter returns to the rendered
+  view. The editor is IME-safe and writes the whole raw block, including whitespace and newlines,
+  back verbatim. Nested tags, comments, `<br>`/`<wbr>`, safe `href`/`style` values and unknown
+  tags are preserved.
 - The extensions only affect the in-memory editor; files on disk remain plain Markdown.
 - GFM's `singleTilde` is disabled so `~x~` means subscript; `~~x~~` still means strikethrough.
 - Alerts render as coloured blocks but are stored as `> [!KIND]` block quotes.
