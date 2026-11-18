@@ -32,6 +32,8 @@ import {
   alertSchema,
   commentSchema,
   highlightSchema,
+  htmlBlockSchema,
+  htmlBlockView,
   htmlBreakSchema,
   htmlInlineSchema,
   htmlTextSchema,
@@ -185,6 +187,8 @@ function EditorHost({
       .use(richRemark)
       .use(underlineSchema)
       .use(htmlInlineSchema)
+      .use(htmlBlockSchema)
+      .use(htmlBlockView)
       .use(htmlTextSchema)
       .use(htmlBreakSchema)
       .use(highlightSchema)

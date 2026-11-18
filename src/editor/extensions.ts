@@ -6,8 +6,10 @@
 //! provided by a matching `toMarkdown` handler, because the syntax has no
 //! standard mdast node type.
 
-import { $mark, $node, $remark } from "@milkdown/kit/utils";
+import { $mark, $node, $remark, $view } from "@milkdown/kit/utils";
 import { imageSchema } from "@milkdown/kit/preset/commonmark";
+import type { NodeViewConstructor } from "@milkdown/kit/prose/view";
+import { getRefractor, hastToDom } from "./highlight";
 
 interface MdNode {
   type: string;
@@ -545,30 +547,38 @@ function buildHtmlFragment(value: string): MdNode[] {
 function parseHtmlBlock(value: string): MdNode | null {
   const source = value.trim();
   const open = HTML_TAG_OPEN.exec(source);
-  if (!open) return null;
-  const tag = open[1].toLowerCase();
-  if (!BLOCK_HTML_TAG_SET.has(tag)) return null;
+  if (!open || !BLOCK_HTML_TAG_SET.has(open[1].toLowerCase())) return null;
 
+  // In the browser, accept a whole block made of one or more block elements.
+  if (typeof document !== "undefined") {
+    const template = document.createElement("template");
+    template.innerHTML = source;
+    const meaningful = Array.from(template.content.childNodes).filter(
+      (node) => node.nodeType !== 3 || (node.textContent ?? "").trim(),
+    );
+    if (!meaningful.length) return null;
+    for (const node of meaningful) {
+      if (node.nodeType === 8) continue;
+      if (
+        node.nodeType === 1 &&
+        BLOCK_HTML_TAG_SET.has((node as Element).tagName.toLowerCase())
+      ) {
+        continue;
+      }
+      return null;
+    }
+    return { type: "htmlBlock", value: source };
+  }
+
+  // Regex fallback for headless parsing: one balanced root element.
+  const tag = open[1].toLowerCase();
   const closePattern = new RegExp(`<\\/\\s*${tag}\\s*>`, "gi");
   let close: RegExpExecArray | null = null;
   let found: RegExpExecArray | null;
   while ((found = closePattern.exec(source)) !== null) close = found;
   if (!close || close.index < open[0].length) return null;
   if (source.slice(close.index + close[0].length).trim()) return null;
-
-  const element: MdNode = {
-    type: "htmlInline",
-    tag,
-    open: open[0],
-    close: close[0],
-    style: htmlNodeStyle(open[0]),
-    href: "",
-    children: buildHtmlFragment(source.slice(open[0].length, close.index)),
-  };
-  transformNode(element);
-  // A paragraph wrapper keeps the HTML element a valid block in Milkdown while
-  // the element itself renders with `display:block` and serializes verbatim.
-  return { type: "paragraph", children: [element] };
+  return { type: "htmlBlock", value: source };
 }
 
 function tokenizeInline(children: MdNode[], parent: MdNode): InlineToken[] {
@@ -913,6 +923,9 @@ export const HANDLERS = {
   htmlBreak(node: MdNode) {
     return String(node.value ?? "<br>");
   },
+  htmlBlock(node: MdNode) {
+    return String(node.value ?? "");
+  },
   // Literal text inside an HTML element is kept in its own node so it can be
   // edited in the WYSIWYG canvas while still round-tripping verbatim.
   htmlText(node: MdNode) {
@@ -1141,6 +1154,250 @@ function htmlInlineDomAttrs(dom: HTMLElement) {
     href: safeHref(dom.getAttribute("href") ?? ""),
   };
 }
+
+const HTML_BLOCK_RENDERABLE = new Set<string>([
+  ...HTML_INLINE_TAGS,
+  ...BLOCK_HTML_TAGS,
+  "br",
+  "wbr",
+  "img",
+]);
+
+/** Recreate an HTML fragment using only Typora-supported tags and safe values. */
+function appendSanitizedHtml(from: Node | DocumentFragment, to: HTMLElement): void {
+  for (const child of Array.from(from.childNodes)) {
+    if (child.nodeType === 3) {
+      to.appendChild(document.createTextNode(child.textContent ?? ""));
+      continue;
+    }
+    if (child.nodeType === 8) {
+      to.appendChild(document.createTextNode(`<!--${child.textContent ?? ""}-->`));
+      continue;
+    }
+    if (child.nodeType !== 1) continue;
+
+    const element = child as HTMLElement;
+    const tag = element.tagName.toLowerCase();
+    if (!HTML_BLOCK_RENDERABLE.has(tag)) {
+      to.appendChild(document.createTextNode(element.outerHTML));
+      continue;
+    }
+
+    const output = document.createElement(tag);
+    output.style.cssText = htmlNodeStyle(element.outerHTML);
+    if (tag === "a") {
+      const href = safeHref(element.getAttribute("href") ?? "");
+      if (href) output.setAttribute("href", href);
+    }
+    if (tag === "img") {
+      const src = safeHref(element.getAttribute("src") ?? "");
+      if (src) output.setAttribute("src", src);
+      const alt = element.getAttribute("alt");
+      if (alt) output.setAttribute("alt", alt);
+    }
+    appendSanitizedHtml(element, output);
+    to.appendChild(output);
+  }
+}
+
+/** Render one whole HTML block as Typora-like HTML, without executing scripts. */
+function renderHtmlBlock(source: string): HTMLElement {
+  const dom = document.createElement("div");
+  dom.className = "md-html-block";
+  dom.dataset.htmlBlock = "";
+  dom.dataset.value = source;
+  dom.contentEditable = "false";
+
+  const template = document.createElement("template");
+  template.innerHTML = source;
+  appendSanitizedHtml(template.content, dom);
+  if (!dom.childNodes.length) dom.textContent = source;
+  return dom;
+}
+
+function highlightedHtmlCode(source: string): HTMLElement {
+  const code = document.createElement("code");
+  code.className = "language-html";
+  code.contentEditable = "true";
+  code.spellcheck = false;
+  try {
+    code.appendChild(hastToDom(getRefractor().highlight(source || " ", "html")));
+  } catch {
+    code.textContent = source;
+  }
+  return code;
+}
+
+function caretOffset(root: HTMLElement): number | null {
+  const selection = window.getSelection();
+  if (!selection || !selection.anchorNode || !root.contains(selection.anchorNode)) {
+    return null;
+  }
+  const range = document.createRange();
+  range.selectNodeContents(root);
+  try {
+    range.setEnd(selection.anchorNode, selection.anchorOffset);
+  } catch {
+    return null;
+  }
+  return range.toString().length;
+}
+
+function restoreCaret(root: HTMLElement, offset: number): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let remaining = offset;
+  let node = walker.nextNode() as Text | null;
+  let target: Text | null = null;
+  let targetOffset = 0;
+  while (node) {
+    const length = node.data.length;
+    if (remaining <= length) {
+      target = node;
+      targetOffset = remaining;
+      break;
+    }
+    remaining -= length;
+    node = walker.nextNode() as Text | null;
+  }
+  const selection = window.getSelection();
+  if (!selection) return;
+  const range = document.createRange();
+  if (target) range.setStart(target, targetOffset);
+  else range.selectNodeContents(root);
+  range.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(range);
+}
+
+/** A single block-level HTML element, edited as an HTML source code block. */
+export const htmlBlockSchema = $node("htmlBlock", () => ({
+  group: "block",
+  atom: true,
+  selectable: true,
+  attrs: {
+    value: { default: "" },
+  },
+  parseDOM: [
+    {
+      tag: "div[data-html-block]",
+      getAttrs: (dom: HTMLElement) => ({ value: dom.dataset.value ?? "" }),
+    },
+  ],
+  toDOM: (node) => renderHtmlBlock(String(node.attrs.value ?? "")),
+  parseMarkdown: {
+    match: ({ type }) => type === "htmlBlock",
+    runner: (state, node, type) => {
+      state.addNode(type, { value: String(node.value ?? "") });
+    },
+  },
+  toMarkdown: {
+    match: (node) => node.type.name === "htmlBlock",
+    runner: (state, node) => {
+      state.addNode("html", undefined, String(node.attrs.value ?? ""));
+    },
+  },
+}));
+
+function createHtmlBlockView(): NodeViewConstructor {
+  return (node, view, getPos) => {
+    let source = String(node.attrs.value ?? "");
+    let editing = false;
+    const dom = renderHtmlBlock(source);
+
+    const commit = (value: string) => {
+      source = value;
+      const pos = getPos();
+      if (pos == null) return;
+      view.dispatch(view.state.tr.setNodeMarkup(pos, undefined, { value }));
+    };
+
+    const updatePreview = (preview: HTMLElement, value: string) => {
+      preview.replaceChildren(...Array.from(renderHtmlBlock(value).childNodes));
+    };
+
+    const leaveEdit = () => {
+      if (!editing) return;
+      editing = false;
+      delete dom.dataset.editing;
+      dom.replaceChildren(...Array.from(renderHtmlBlock(source).childNodes));
+      view.focus();
+    };
+
+    const enterEdit = (event?: Event) => {
+      event?.preventDefault();
+      event?.stopPropagation();
+      if (editing) return;
+      editing = true;
+      dom.dataset.editing = "true";
+      dom.replaceChildren();
+
+      const label = document.createElement("div");
+      label.className = "md-html-source-label";
+      label.textContent = "HTML";
+
+      const pre = document.createElement("pre");
+      pre.className = "md-html-source";
+      const code = highlightedHtmlCode(source);
+      pre.appendChild(code);
+
+      const preview = document.createElement("div");
+      preview.className = "md-html-preview";
+      updatePreview(preview, source);
+
+      dom.append(label, pre, preview);
+
+      code.addEventListener("input", () => {
+        const next = code.textContent ?? "";
+        const offset = caretOffset(code);
+        commit(next);
+        const highlighted = highlightedHtmlCode(next);
+        code.replaceChildren(...Array.from(highlighted.childNodes));
+        code.focus();
+        if (offset != null) restoreCaret(code, offset);
+        updatePreview(preview, next);
+      });
+      code.addEventListener("keydown", (keyEvent) => {
+        if ((keyEvent.metaKey || keyEvent.ctrlKey) && keyEvent.key === "Enter") {
+          keyEvent.preventDefault();
+          leaveEdit();
+        }
+      });
+      code.addEventListener("blur", (blurEvent) => {
+        if (!dom.contains((blurEvent as FocusEvent).relatedTarget as Node | null)) {
+          leaveEdit();
+        }
+      });
+
+      code.focus();
+      restoreCaret(code, source.length);
+    };
+
+    dom.addEventListener("click", enterEdit);
+
+    return {
+      dom,
+      update: (updated) => {
+        if (updated.type.name !== "htmlBlock") return false;
+        const next = String(updated.attrs.value ?? "");
+        if (next !== source) source = next;
+        if (editing) return true;
+        dom.replaceChildren(...Array.from(renderHtmlBlock(source).childNodes));
+        return true;
+      },
+      // Let the click reach our own handler instead of being consumed by
+      // ProseMirror's NodeSelection logic on the atom node.
+      stopEvent: (event) =>
+        editing ||
+        event.type === "mousedown" ||
+        event.type === "mouseup" ||
+        event.type === "click",
+      ignoreMutation: () => true,
+      destroy: () => dom.removeEventListener("click", enterEdit),
+    };
+  };
+}
+
+export const htmlBlockView = $view(htmlBlockSchema, createHtmlBlockView);
 
 /**
  * Editable literal text inside an HTML element. Markdown syntax here stays

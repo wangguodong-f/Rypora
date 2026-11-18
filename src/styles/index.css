@@ -1044,6 +1044,47 @@ select {
   display: none;
 }
 
+/* A block-level HTML element is one editor block. Clicking it swaps the
+   rendered result for an HTML source code block with a live preview. */
+.milkdown .editor .md-html-block {
+  margin: 0;
+}
+
+.milkdown .editor .md-html-block[data-editing] {
+  margin: 0.62em 0;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 9px;
+  background: var(--bg-subtle, var(--code-bg));
+}
+
+.md-html-source-label {
+  margin-bottom: 6px;
+  color: var(--muted, #888);
+  font-size: 0.72em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.milkdown .editor .md-html-source {
+  margin: 0;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.milkdown .editor .md-html-source code {
+  outline: none;
+  font-size: 0.84em;
+  caret-color: var(--accent);
+}
+
+.md-html-preview {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
 .milkdown .editor h1,
 .milkdown .editor h2,
 .milkdown .editor h3,

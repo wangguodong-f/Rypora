@@ -8,6 +8,7 @@ import go from "refractor/go";
 import java from "refractor/java";
 import json from "refractor/json";
 import jsx from "refractor/jsx";
+import markup from "refractor/markup";
 import markdown from "refractor/markdown";
 import python from "refractor/python";
 import rust from "refractor/rust";
@@ -25,6 +26,7 @@ const LANGUAGES = [
   java,
   json,
   jsx,
+  markup,
   markdown,
   python,
   rust,
@@ -43,12 +45,15 @@ export function getRefractor(): Refractor {
     for (const language of LANGUAGES) refractor.register(language);
     // Mermaid fences are rendered as diagrams, but prism still visits them.
     refractor.alias("markdown", "mermaid");
+    refractor.alias("markup", "html");
+    refractor.alias("markup", "xml");
+    refractor.alias("markup", "svg");
     prepared = true;
   }
   return refractor;
 }
 
-function hastToDom(node: Root | Element | Text): Node {
+export function hastToDom(node: Root | Element | Text): Node {
   if (node.type === "text") return document.createTextNode(node.value);
   if (node.type === "root") {
     const fragment = document.createDocumentFragment();
