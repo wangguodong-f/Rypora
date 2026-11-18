@@ -839,7 +839,7 @@ function applyMenuAction(action: string): void {
     case "app.about":
     case "help.about":
       void message(
-        "Rypora 0.2.0\n\n使用 Tauri、React 与 Milkdown 构建的所见即所得 Markdown 编辑器。",
+        "Rypora 0.3.0\n\n使用 Tauri、React 与 Milkdown 构建的所见即所得 Markdown 编辑器。",
         { title: "关于 Rypora" },
       );
       return;
