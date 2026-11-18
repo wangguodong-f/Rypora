@@ -30,9 +30,9 @@ by the Rust backend.
 - Typora-style extensions: underline, highlight, superscript, subscript, inline and block
   comments, five alert kinds, link references and footnotes, all read and written as plain
   Markdown
-- Typora-compatible inline HTML (`<b>`, `<span>`, `<font>`, `<br>`, `<kbd>`, `<mark>`, `<del>`,
-  `<a>` and the other tags Typora recognises) renders with live styling and keeps its
-  original tags and attributes when saved
+- Typora-compatible HTML (`<b>`, `<span>`, `<br>`, `<p>`, `<div>`, `<center>` and the other
+  tags Typora recognises) renders inline and as blocks with live styling, keeps its original
+  tags and attributes when saved, and supports nesting
 - Source mode (⌘/) edits the raw Markdown while sharing content with the WYSIWYG view
 - Inline (`$…$`) and block (`$$…$$`) math rendered with KaTeX; double-click a formula to edit it
 - Mermaid diagrams previewed live inside the document, and rendered to SVG on export
@@ -334,8 +334,12 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
   is handled by one nestable inline node. The original tags live in the node's
   attributes, so `<b>…</b>` is written back as HTML rather than `**…**`. `br` and `wbr` are
   inline atoms and keep their exact spelling.
-- Block-level HTML is left as raw Markdown text; Typora also treats HTML blocks as raw
-  blocks rather than converting them into WYSIWYG DOM.
+- Block-level HTML uses the same node as inline HTML but renders with `display:block` and
+  Typora's default styling (`<p>` margins, `<h1>`–`<h6>` sizes, `<center>` alignment,
+  `text-align`, colour and background). A paragraph wrapper keeps it valid in the editor's
+  content model, so `<p>`, `<div>`, `<center>`, `<details>`, `<h1>`–`<h6>` and the other
+  container tags render as WYSIWYG blocks and are written back verbatim. Nested tags,
+  comments, `<br>`/`<wbr>`, safe `href`/`style` values and unknown tags are preserved.
 - The extensions only affect the in-memory editor; files on disk remain plain Markdown.
 - GFM's `singleTilde` is disabled so `~x~` means subscript; `~~x~~` still means strikethrough.
 - Alerts render as coloured blocks but are stored as `> [!KIND]` block quotes.

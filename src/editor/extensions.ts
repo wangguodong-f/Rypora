@@ -73,6 +73,36 @@ const HTML_INLINE_CLOSE = new RegExp(
 );
 const HTML_VOID = /^<(?:br|wbr)\s*\/?>$/i;
 
+/**
+ * Block-level containers Typora renders live. These hold inline content, so a
+ * single `inline*` node is enough to reproduce their appearance and raw tags.
+ */
+const BLOCK_HTML_TAGS = [
+  "address",
+  "article",
+  "aside",
+  "center",
+  "details",
+  "div",
+  "figure",
+  "footer",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "header",
+  "left",
+  "main",
+  "nav",
+  "p",
+  "right",
+  "section",
+] as const;
+
+const BLOCK_HTML_TAG_SET = new Set<string>(BLOCK_HTML_TAGS);
+
 const BLOCK_CONTAINERS = new Set([
   "root",
   "blockquote",
@@ -228,6 +258,10 @@ function safeCssValue(property: string, value: string): string | null {
       return /^(?:none|underline|overline|line-through)$/.test(trimmed)
         ? trimmed
         : null;
+    case "text-align":
+      return /^(?:left|center|right|justify|start|end)$/i.test(trimmed)
+        ? trimmed.toLowerCase()
+        : null;
     default:
       return null;
   }
@@ -295,12 +329,35 @@ function safeHref(value: string): string {
   return /^[a-z][a-z0-9+.-]*:/i.test(href) ? "" : href;
 }
 
-/** Build safe inline CSS for a Typora-compatible HTML tag. */
-function htmlInlineStyle(openTag: string): string {
+function baseHtmlStyle(tag: string): Record<string, string> {
+  const rules = baseInlineStyle(tag);
+  if (!BLOCK_HTML_TAG_SET.has(tag)) return rules;
+
+  rules.display = "block";
+  if (tag === "center") rules["text-align"] = "center";
+  if (tag === "left") rules["text-align"] = "left";
+  if (tag === "right") rules["text-align"] = "right";
+  if (tag === "p") rules.margin = "0.62em 0";
+
+  const heading = /^h([1-6])$/.exec(tag);
+  if (heading) {
+    const sizes = ["1.85em", "1.48em", "1.24em", "1.09em", "1em", "0.92em"];
+    rules["font-size"] = sizes[Number(heading[1]) - 1];
+    rules["font-weight"] = "650";
+    rules.margin = "1.1em 0 0.55em";
+  }
+  return rules;
+}
+
+/** Build safe CSS for a Typora-compatible HTML tag. */
+function htmlNodeStyle(openTag: string): string {
   const match = /^<([a-z][a-z0-9-]*)/i.exec(openTag.trim());
   if (!match) return "";
   const tag = match[1].toLowerCase();
-  const rules = baseInlineStyle(tag);
+  const rules = baseHtmlStyle(tag);
+
+  const align = safeCssValue("text-align", imageAttr(openTag, "align"));
+  if (align) rules["text-align"] = align;
 
   for (const declaration of imageAttr(openTag, "style").split(";")) {
     const separator = declaration.indexOf(":");
@@ -342,6 +399,173 @@ function parseImageTag(value: string): MdNode | null {
   };
 }
 
+const HTML_TAG_SCAN =
+  /<!--[\s\S]*?-->|<\/?[a-z][a-z0-9-]*(?:"[^"]*"|'[^']*'|[^>"'])*>/gi;
+const HTML_TAG_OPEN =
+  /^<([a-z][a-z0-9-]*)((?:"[^"]*"|'[^']*'|[^>"'])*)>/i;
+const HTML_TAG_CLOSE = /^<\/\s*([a-z][a-z0-9-]*)\s*>$/i;
+
+type HtmlFragmentToken =
+  | { kind: "text"; value: string }
+  | { kind: "raw"; value: string }
+  | { kind: "open"; tag: string; value: string }
+  | { kind: "close"; tag: string; value: string };
+
+function isRenderedHtmlTag(tag: string): boolean {
+  return (
+    (HTML_INLINE_TAGS as readonly string[]).includes(tag) ||
+    BLOCK_HTML_TAG_SET.has(tag)
+  );
+}
+
+function tokenizeHtmlFragment(value: string): HtmlFragmentToken[] {
+  const tokens: HtmlFragmentToken[] = [];
+  let last = 0;
+  let match: RegExpExecArray | null;
+
+  HTML_TAG_SCAN.lastIndex = 0;
+  while ((match = HTML_TAG_SCAN.exec(value)) !== null) {
+    if (match.index > last) {
+      tokens.push({ kind: "text", value: value.slice(last, match.index) });
+    }
+
+    const raw = match[0];
+    if (raw.startsWith("<!--")) {
+      tokens.push({ kind: "raw", value: raw });
+    } else {
+      const close = HTML_TAG_CLOSE.exec(raw);
+      const open = close ? null : HTML_TAG_OPEN.exec(raw);
+      if (close) {
+        const tag = close[1].toLowerCase();
+        tokens.push(
+          isRenderedHtmlTag(tag)
+            ? { kind: "close", tag, value: raw }
+            : { kind: "raw", value: raw },
+        );
+      } else if (open) {
+        const tag = open[1].toLowerCase();
+        if (tag === "br" || tag === "wbr") {
+          tokens.push({ kind: "raw", value: raw });
+        } else {
+          tokens.push(
+            isRenderedHtmlTag(tag)
+              ? { kind: "open", tag, value: raw }
+              : { kind: "raw", value: raw },
+          );
+        }
+      } else {
+        tokens.push({ kind: "raw", value: raw });
+      }
+    }
+    last = HTML_TAG_SCAN.lastIndex;
+  }
+
+  if (last < value.length) {
+    tokens.push({ kind: "text", value: value.slice(last) });
+  }
+  return tokens;
+}
+
+interface HtmlFrame {
+  node: MdNode;
+  parent: MdNode;
+  index: number;
+}
+
+/**
+ * Turn the contents of an HTML block into mdast. Unknown tags stay raw so
+ * Typora's "render what it understands, preserve the rest" behaviour survives.
+ */
+function buildHtmlFragment(value: string): MdNode[] {
+  const root: MdNode = { type: "htmlFragment", children: [] };
+  const stack: HtmlFrame[] = [{ node: root, parent: root, index: -1 }];
+
+  const unwind = () => {
+    const frame = stack.pop();
+    if (!frame || frame.index < 0) return;
+    frame.parent.children!.splice(
+      frame.index,
+      1,
+      { type: "html", value: String(frame.node.open ?? "") },
+      ...(frame.node.children ?? []),
+    );
+  };
+
+  for (const token of tokenizeHtmlFragment(value)) {
+    const current = stack[stack.length - 1].node;
+    const children = current.children!;
+
+    if (token.kind === "text") {
+      // Keep text verbatim: remark would otherwise encode leading spaces after
+      // a newline as `&#x20;` inside the surrounding paragraph.
+      children.push({ type: "html", value: token.value });
+      continue;
+    }
+    if (token.kind === "raw") {
+      children.push({ type: "html", value: token.value });
+      continue;
+    }
+    if (token.kind === "open") {
+      const node: MdNode = {
+        type: "htmlInline",
+        tag: token.tag,
+        open: token.value,
+        close: `</${token.tag}>`,
+        style: htmlNodeStyle(token.value),
+        href: token.tag === "a" ? safeHref(imageAttr(token.value, "href")) : "",
+        children: [],
+      };
+      children.push(node);
+      stack.push({ node, parent: current, index: children.length - 1 });
+      continue;
+    }
+
+    let matched = false;
+    for (let at = stack.length - 1; at > 0; at -= 1) {
+      if (stack[at].node.tag !== token.tag) continue;
+      while (stack.length - 1 > at) unwind();
+      stack[stack.length - 1].node.close = token.value;
+      stack.pop();
+      matched = true;
+      break;
+    }
+    if (!matched) children.push({ type: "html", value: token.value });
+  }
+
+  while (stack.length > 1) unwind();
+  return root.children!;
+}
+
+/** A full block-level HTML element, e.g. `<p>…</p>` or `<div>…</div>`. */
+function parseHtmlBlock(value: string): MdNode | null {
+  const source = value.trim();
+  const open = HTML_TAG_OPEN.exec(source);
+  if (!open) return null;
+  const tag = open[1].toLowerCase();
+  if (!BLOCK_HTML_TAG_SET.has(tag)) return null;
+
+  const closePattern = new RegExp(`<\\/\\s*${tag}\\s*>`, "gi");
+  let close: RegExpExecArray | null = null;
+  let found: RegExpExecArray | null;
+  while ((found = closePattern.exec(source)) !== null) close = found;
+  if (!close || close.index < open[0].length) return null;
+  if (source.slice(close.index + close[0].length).trim()) return null;
+
+  const element: MdNode = {
+    type: "htmlInline",
+    tag,
+    open: open[0],
+    close: close[0],
+    style: htmlNodeStyle(open[0]),
+    href: "",
+    children: buildHtmlFragment(source.slice(open[0].length, close.index)),
+  };
+  transformNode(element);
+  // A paragraph wrapper keeps the HTML element a valid block in Milkdown while
+  // the element itself renders with `display:block` and serializes verbatim.
+  return { type: "paragraph", children: [element] };
+}
+
 function tokenizeInline(children: MdNode[], parent: MdNode): InlineToken[] {
   const tokens: InlineToken[] = [];
 
@@ -379,7 +603,7 @@ function tokenizeInline(children: MdNode[], parent: MdNode): InlineToken[] {
           raw: child.value,
           open: child.value,
           close: `</${tag}>`,
-          style: htmlInlineStyle(child.value),
+          style: htmlNodeStyle(child.value),
           href: tag === "a" ? safeHref(imageAttr(child.value, "href")) : "",
           side: "open",
         });
@@ -613,7 +837,28 @@ export function transformNode(node: MdNode): void {
     }
   }
 
-  node.children = parseInline(node.children ?? [], node);
+  // The commonmark preset's `remarkHtmlTransformer` wraps standalone block
+  // HTML in a paragraph before this plugin runs. Replace that wrapper with the
+  // rendered block instead of nesting a paragraph inside another paragraph,
+  // which the editor content model would silently drop.
+  if (node.type === "paragraph" && node.children?.length === 1) {
+    const only = node.children[0];
+    if (only.type === "html" && typeof only.value === "string") {
+      const block = parseHtmlBlock(only.value);
+      if (block) {
+        delete node.value;
+        Object.assign(node, block);
+        return;
+      }
+    }
+  }
+
+  const children = (node.children ?? []).flatMap((child) => {
+    if (child.type !== "html" || typeof child.value !== "string") return [child];
+    const block = parseHtmlBlock(child.value);
+    return block ? [block] : [child];
+  });
+  node.children = parseInline(children, node);
 }
 
 function delimiter(
@@ -876,11 +1121,23 @@ function simpleMark(id: string, tag: string) {
   }));
 }
 
+function htmlInlineDomAttrs(dom: HTMLElement) {
+  const tag = dom.dataset.tag ?? "span";
+  return {
+    tag,
+    open: dom.dataset.open ?? `<${tag}>`,
+    close: dom.dataset.close ?? `</${tag}>`,
+    style: dom.getAttribute("style") ?? "",
+    href: safeHref(dom.getAttribute("href") ?? ""),
+  };
+}
+
 /**
- * A nestable inline node for Typora-compatible HTML. A mark cannot contain
- * another mark of the same type, so nested `<b><span>…</span></b>` needs a node
- * with inline content. The original tags are kept in attributes so the Markdown
- * serializer can restore exactly what was read.
+ * A nestable node for Typora-compatible HTML. A mark cannot contain another
+ * mark of the same type, so nested `<b><span>…</span></b>` needs a node with
+ * inline content. The same node also represents block containers such as `<p>`
+ * and `<div>`; those are rendered as block-level spans. Original tags stay in
+ * attributes so the Markdown serializer can restore exactly what was read.
  */
 export const htmlInlineSchema = $node("htmlInline", () => ({
   group: "inline",
@@ -896,24 +1153,16 @@ export const htmlInlineSchema = $node("htmlInline", () => ({
   parseDOM: [
     {
       tag: "span[data-html-inline]",
-      getAttrs: (dom: HTMLElement) => ({
-        tag: dom.dataset.tag ?? "span",
-        open: dom.dataset.open ?? `<${dom.dataset.tag ?? "span"}>`,
-        close: dom.dataset.close ?? `</${dom.dataset.tag ?? "span"}>`,
-        style: dom.getAttribute("style") ?? "",
-        href: safeHref(dom.getAttribute("href") ?? ""),
-      }),
+      getAttrs: htmlInlineDomAttrs,
     },
     {
       tag: "a[data-html-inline]",
-      getAttrs: (dom: HTMLElement) => ({
-        tag: dom.dataset.tag ?? "a",
-        open: dom.dataset.open ?? "<a>",
-        close: dom.dataset.close ?? "</a>",
-        style: dom.getAttribute("style") ?? "",
-        href: safeHref(dom.getAttribute("href") ?? ""),
-      }),
+      getAttrs: htmlInlineDomAttrs,
     },
+    ...BLOCK_HTML_TAGS.map((tag) => ({
+      tag: `${tag}[data-html-inline]`,
+      getAttrs: htmlInlineDomAttrs,
+    })),
   ],
   toDOM: (node) => {
     const tag = String(node.attrs.tag ?? "span");
