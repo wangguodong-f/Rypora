@@ -12,7 +12,7 @@ import {
   remarkStringifyOptionsCtx,
   rootCtx,
 } from "@milkdown/kit/core";
-import { commonmark } from "@milkdown/kit/preset/commonmark";
+import { commonmark, paragraphAttr } from "@milkdown/kit/preset/commonmark";
 import { gfm, remarkGFMPlugin } from "@milkdown/kit/preset/gfm";
 import { history } from "@milkdown/kit/plugin/history";
 import { listener, listenerCtx } from "@milkdown/kit/plugin/listener";
@@ -37,6 +37,7 @@ import {
   linkDefinitionSchema,
   linkRefRemark,
   linkRefSchema,
+  isBlockHtmlTag,
   normalizeEmptyFootnoteDefinitions,
   richImageSchema,
   richRemark,
@@ -125,6 +126,21 @@ function EditorHost({
           ...ctx.get(remarkStringifyOptionsCtx),
           bullet: "-",
           rule: "-",
+        });
+        // A paragraph that only wraps a block-level HTML element is a
+        // structural necessity of the inline schema. Mark it so CSS can drop
+        // its margin and ProseMirror's trailing break; the block span inside
+        // supplies the real Typora spacing.
+        ctx.set(paragraphAttr.key, (node) => {
+          const child = node.firstChild;
+          if (
+            node.childCount === 1 &&
+            child?.type.name === "htmlInline" &&
+            isBlockHtmlTag(child.attrs.tag)
+          ) {
+            return { class: "md-html-block-wrap" };
+          }
+          return {};
         });
         ctx.get(listenerCtx)
           .markdownUpdated((_ctx, markdown) => {

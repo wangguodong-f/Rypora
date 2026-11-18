@@ -1032,6 +1032,18 @@ select {
   margin: 0.62em 0;
 }
 
+/* Block HTML is wrapped in a paragraph by the inline schema. The wrapper must
+   not add paragraph spacing of its own: the HTML element carries Typora's
+   margins, and ProseMirror's trailing <br> would otherwise create an empty
+   line after the block. */
+.milkdown .editor p.md-html-block-wrap {
+  margin: 0;
+}
+
+.milkdown .editor p.md-html-block-wrap > br.ProseMirror-trailingBreak {
+  display: none;
+}
+
 .milkdown .editor h1,
 .milkdown .editor h2,
 .milkdown .editor h3,

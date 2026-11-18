@@ -103,6 +103,11 @@ const BLOCK_HTML_TAGS = [
 
 const BLOCK_HTML_TAG_SET = new Set<string>(BLOCK_HTML_TAGS);
 
+/** True for tags that Typora renders as a block, e.g. `<p>` or `<div>`. */
+export function isBlockHtmlTag(tag: unknown): boolean {
+  return BLOCK_HTML_TAG_SET.has(String(tag ?? "").toLowerCase());
+}
+
 const BLOCK_CONTAINERS = new Set([
   "root",
   "blockquote",
