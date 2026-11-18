@@ -330,18 +330,25 @@ back: `<u>…</u>`, `==…==`, `^…^`, `~…~`, `<!--…-->`, `> [!NOTE]` and l
 
 - Typora's inline HTML list (`em`, `strong`, `small`, `big`, `s`, `strike`, `cite`, `q`, `dfn`,
   `abbr`, `data`, `time`, `code`, `var`, `samp`, `kbd`, `sub`, `sup`, `i`, `b`, `mark`, `ruby`,
-  `span`, `ins`, `del`, `button`, `font`, `acronym`, `tt`, `progress`, `meter`, `svg`, `a`)
-  is handled by one nestable inline node. The original tags live in the node's
-  attributes, so `<b>…</b>` is written back as HTML rather than `**…**`. Text inside HTML
-  elements is editable directly in the rendered view; Markdown syntax there stays literal and
-  the original text round-trips. `br` and `wbr` are inline atoms and keep their exact spelling.
-- Block-level HTML is one editor block, rendered with Typora's default styling (`<p>` margins,
-  `<h1>`–`<h6>` sizes, `<center>` alignment, `text-align`, colour and background). Focusing a
-  rendered block swaps it in place for a syntax-highlighted HTML source editor (the rendered
-  view is hidden while editing); losing focus or pressing ⌘/Ctrl+Enter returns to the rendered
-  view. The editor is IME-safe and writes the whole raw block, including whitespace and newlines,
-  back verbatim. Nested tags, comments, `<br>`/`<wbr>`, safe `href`/`style` values and unknown
-  tags are preserved.
+  `rt`, `rp`, `bdi`, `bdo`, `output`, `span`, `ins`, `del`, `button`, `font`, `acronym`, `tt`,
+  `progress`, `meter`, `svg`, `a`) is handled by one nestable inline node. The original tags
+  live in the node's attributes, so `<b>…</b>` is written back as HTML rather than `**…**`.
+  Text inside HTML elements is editable directly in the rendered view; Markdown syntax there
+  stays literal and the original text round-trips. `br` and `wbr` are inline atoms and keep
+  their exact spelling.
+- Block-level HTML follows the same model as Typora: common containers, `<video>`, `<audio>`,
+  `<iframe>` and `<svg>` are whole editor blocks, rendered with Typora-like default styling.
+  Focusing a rendered block swaps it in place for a syntax-highlighted HTML source editor (the
+  rendered view is hidden while editing); losing focus or pressing ⌘/Ctrl+Enter returns to the
+  rendered view. The editor is IME-safe and writes the whole raw block, including whitespace
+  and newlines, back verbatim. Markdown is never parsed inside an HTML block.
+- Invisible tags (`script`, `style`, `meta`, `link`, `base`, `title`, `template`, `noscript`)
+  show only their raw source, as in Typora. `<iframe>` content may contain scripts, but the
+  iframe is forced into an opaque `sandbox="allow-scripts"` frame with no parent or local-file
+  access. `class`, `id`, `data-*` and unknown attributes are ignored in the rendered view, and
+  only whitelisted `href`/`src`/`style` values are applied; the original source is preserved.
+  HTML entities render (`&reg;` → `®`) and are normalised to Unicode when saved, which is the
+  form Typora recommends.
 - The extensions only affect the in-memory editor; files on disk remain plain Markdown.
 - GFM's `singleTilde` is disabled so `~x~` means subscript; `~~x~~` still means strikethrough.
 - Alerts render as coloured blocks but are stored as `> [!KIND]` block quotes.

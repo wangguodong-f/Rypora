@@ -32,6 +32,8 @@ const HTML_INLINE_TAGS = [
   "abbr",
   "acronym",
   "b",
+  "bdi",
+  "bdo",
   "big",
   "button",
   "cite",
@@ -46,8 +48,11 @@ const HTML_INLINE_TAGS = [
   "kbd",
   "mark",
   "meter",
+  "output",
   "progress",
   "q",
+  "rp",
+  "rt",
   "ruby",
   "s",
   "samp",
@@ -83,9 +88,18 @@ const BLOCK_HTML_TAGS = [
   "address",
   "article",
   "aside",
+  "audio",
+  "blockquote",
+  "caption",
   "center",
+  "col",
+  "colgroup",
+  "dd",
   "details",
   "div",
+  "dl",
+  "dt",
+  "figcaption",
   "figure",
   "footer",
   "h1",
@@ -95,15 +109,68 @@ const BLOCK_HTML_TAGS = [
   "h5",
   "h6",
   "header",
+  "hr",
+  "iframe",
   "left",
+  "li",
   "main",
   "nav",
+  "ol",
   "p",
+  "pre",
   "right",
   "section",
+  "source",
+  "summary",
+  "table",
+  "tbody",
+  "td",
+  "tfoot",
+  "th",
+  "thead",
+  "tr",
+  "track",
+  "ul",
+  "video",
 ] as const;
 
+/**
+ * Invisible or non-rendering tags are still whole HTML blocks. Typora shows
+ * their raw source instead of a preview; the source remains editable.
+ */
+const RAW_HTML_TAGS = [
+  "base",
+  "link",
+  "meta",
+  "noscript",
+  "script",
+  "style",
+  "template",
+  "title",
+] as const;
+
+/** Inline tags Typora edits with the same source-block behaviour as blocks. */
+const BLOCK_EDITABLE_INLINE_TAGS = ["svg"] as const;
+
 const BLOCK_HTML_TAG_SET = new Set<string>(BLOCK_HTML_TAGS);
+const RAW_HTML_TAG_SET = new Set<string>(RAW_HTML_TAGS);
+const HTML_BLOCK_TAG_SET = new Set<string>([
+  ...BLOCK_HTML_TAGS,
+  ...RAW_HTML_TAGS,
+  ...BLOCK_EDITABLE_INLINE_TAGS,
+]);
+const VOID_HTML_TAG_SET = new Set<string>([
+  "base",
+  "br",
+  "col",
+  "hr",
+  "img",
+  "link",
+  "meta",
+  "source",
+  "track",
+  "wbr",
+]);
 
 /** True for tags that Typora renders as a block, e.g. `<p>` or `<div>`. */
 export function isBlockHtmlTag(tag: unknown): boolean {
@@ -316,7 +383,9 @@ function baseInlineStyle(tag: string): Record<string, string> {
         "font-size": "0.92em",
       };
     case "small":
-      return { "font-size": "0.82em" };
+    case "rt":
+    case "rp":
+      return { "font-size": "0.72em" };
     case "big":
       return { "font-size": "1.18em" };
     case "sup":
@@ -336,6 +405,20 @@ function safeHref(value: string): string {
   return /^[a-z][a-z0-9+.-]*:/i.test(href) ? "" : href;
 }
 
+/** Media/embed sources: network and relative paths only, never data/script. */
+function safeMediaSrc(value: string): string {
+  const src = safeHref(value);
+  if (!src) return "";
+  if (/^(?:mailto:|tel:)/i.test(src)) return "";
+  return src;
+}
+
+function safeAttributeNumber(value: string | null): string {
+  return value && /^\d+(?:\.\d+)?(?:px|%)?$/i.test(value.trim())
+    ? value.trim()
+    : "";
+}
+
 function baseHtmlStyle(tag: string): Record<string, string> {
   const rules = baseInlineStyle(tag);
   if (!BLOCK_HTML_TAG_SET.has(tag)) return rules;
@@ -353,6 +436,10 @@ function baseHtmlStyle(tag: string): Record<string, string> {
     rules["font-weight"] = "650";
     rules.margin = "1.1em 0 0.55em";
   }
+  if (tag === "iframe" || tag === "video" || tag === "audio") {
+    rules["max-width"] = "100%";
+  }
+  if (tag === "iframe") rules.border = "0";
   return rules;
 }
 
@@ -547,7 +634,7 @@ function buildHtmlFragment(value: string): MdNode[] {
 function parseHtmlBlock(value: string): MdNode | null {
   const source = value.trim();
   const open = HTML_TAG_OPEN.exec(source);
-  if (!open || !BLOCK_HTML_TAG_SET.has(open[1].toLowerCase())) return null;
+  if (!open || !HTML_BLOCK_TAG_SET.has(open[1].toLowerCase())) return null;
 
   // In the browser, accept a whole block made of one or more block elements.
   if (typeof document !== "undefined") {
@@ -559,19 +646,30 @@ function parseHtmlBlock(value: string): MdNode | null {
     if (!meaningful.length) return null;
     for (const node of meaningful) {
       if (node.nodeType === 8) continue;
+      if (node.nodeType !== 1) return null;
+      const tag = (node as Element).tagName.toLowerCase();
+      if (!HTML_BLOCK_TAG_SET.has(tag)) return null;
+      // <template> auto-closes unclosed tags. Require the closing tag in the
+      // original source so an opening `<video>` is not mistaken for a whole
+      // block and the matching `</video>` left behind as a separate node.
       if (
-        node.nodeType === 1 &&
-        BLOCK_HTML_TAG_SET.has((node as Element).tagName.toLowerCase())
+        !VOID_HTML_TAG_SET.has(tag) &&
+        !new RegExp(`<\\/\\s*${tag}\\s*>`, "i").test(source)
       ) {
-        continue;
+        return null;
       }
-      return null;
     }
     return { type: "htmlBlock", value: source };
   }
 
-  // Regex fallback for headless parsing: one balanced root element.
+  // Regex fallback for headless parsing: one balanced root element, or one
+  // void element such as `<meta>` / `<link>`.
   const tag = open[1].toLowerCase();
+  if (VOID_HTML_TAG_SET.has(tag)) {
+    return /^<[a-z][a-z0-9-]*(?:"[^"]*"|'[^']*'|[^>"'])*\/?>$/i.test(source)
+      ? { type: "htmlBlock", value: source }
+      : null;
+  }
   const closePattern = new RegExp(`<\\/\\s*${tag}\\s*>`, "gi");
   let close: RegExpExecArray | null = null;
   let found: RegExpExecArray | null;
@@ -856,11 +954,23 @@ export function transformNode(node: MdNode): void {
   // HTML in a paragraph before this plugin runs. Replace that wrapper with the
   // rendered block instead of nesting a paragraph inside another paragraph,
   // which the editor content model would silently drop.
-  if (node.type === "paragraph" && node.children?.length === 1) {
-    const only = node.children[0];
-    if (only.type === "html" && typeof only.value === "string") {
-      const block = parseHtmlBlock(only.value);
+  if (node.type === "paragraph" && node.children?.length) {
+    // CommonMark only recognises a fixed set of block tags. Tags such as
+    // <video>, <audio> and <svg> arrive as several sibling raw-html nodes;
+    // join them back into the original source before deciding whether this is
+    // really one Typora HTML block.
+    const rawOnly = node.children.every(
+      (child) =>
+        (child.type === "html" ||
+          child.type === "htmlBlock" ||
+          child.type === "text") &&
+        typeof child.value === "string",
+    );
+    if (rawOnly) {
+      const source = node.children.map((child) => String(child.value ?? "")).join("");
+      const block = parseHtmlBlock(source);
       if (block) {
+        delete node.children;
         delete node.value;
         Object.assign(node, block);
         return;
@@ -1163,8 +1273,128 @@ const HTML_BLOCK_RENDERABLE = new Set<string>([
   "img",
 ]);
 
+/** A conservative SVG subset: no scripts, foreign objects or external URLs. */
+const SVG_TAG_SET = new Set([
+  "svg",
+  "g",
+  "defs",
+  "use",
+  "symbol",
+  "title",
+  "desc",
+  "path",
+  "rect",
+  "circle",
+  "ellipse",
+  "line",
+  "polyline",
+  "polygon",
+  "text",
+  "tspan",
+  "textpath",
+  "lineargradient",
+  "radialgradient",
+  "stop",
+  "clippath",
+  "mask",
+  "pattern",
+  "marker",
+]);
+
+const SVG_ATTR_SET = new Set([
+  "d",
+  "points",
+  "x",
+  "y",
+  "x1",
+  "y1",
+  "x2",
+  "y2",
+  "cx",
+  "cy",
+  "r",
+  "rx",
+  "ry",
+  "width",
+  "height",
+  "viewbox",
+  "preserveaspectratio",
+  "fill",
+  "stroke",
+  "stroke-width",
+  "stroke-linecap",
+  "stroke-linejoin",
+  "opacity",
+  "fill-opacity",
+  "stroke-opacity",
+  "transform",
+  "offset",
+  "stop-color",
+  "stop-opacity",
+  "href",
+  "xlink:href",
+]);
+
+function safeSvgValue(value: string): string | null {
+  const text = value.trim();
+  if (!text || /(?:javascript|data|expression|behavior)/i.test(text)) return null;
+  // Local fragment references (`url(#id)`) are fine; external ones are not.
+  if (/url\s*\(\s*(?!(?:['"]?)#)/i.test(text)) return null;
+  return text;
+}
+
+function copySvgAttributes(element: Element, output: Element): void {
+  for (const attr of Array.from(element.attributes)) {
+    const name = attr.name.toLowerCase();
+    if (!SVG_ATTR_SET.has(name)) continue;
+    const value = safeSvgValue(attr.value);
+    if (value == null) continue;
+    if ((name === "href" || name === "xlink:href") && !value.startsWith("#")) {
+      continue;
+    }
+    const canonical =
+      name === "xlink:href"
+        ? "href"
+        : name === "viewbox"
+          ? "viewBox"
+          : name === "preserveaspectratio"
+            ? "preserveAspectRatio"
+            : name;
+    output.setAttribute(canonical, value);
+  }
+}
+
+function appendSanitizedSvg(from: Element, to: Element): void {
+  for (const child of Array.from(from.childNodes)) {
+    if (child.nodeType === 3) {
+      to.appendChild(document.createTextNode(child.textContent ?? ""));
+      continue;
+    }
+    if (child.nodeType !== 1) continue;
+
+    const element = child as Element;
+    const tag = element.tagName.toLowerCase();
+    if (!SVG_TAG_SET.has(tag)) {
+      to.appendChild(document.createTextNode(element.outerHTML));
+      continue;
+    }
+
+    const output = document.createElementNS("http://www.w3.org/2000/svg", tag);
+    copySvgAttributes(element, output);
+    appendSanitizedSvg(element, output);
+    to.appendChild(output);
+  }
+}
+
+function appendCopyableAttributes(element: HTMLElement, output: HTMLElement): void {
+  for (const name of ["width", "height", "colspan", "rowspan", "start"]) {
+    const value = safeAttributeNumber(element.getAttribute(name));
+    if (value) output.setAttribute(name, value);
+  }
+}
+
 /** Recreate an HTML fragment using only Typora-supported tags and safe values. */
-function appendSanitizedHtml(from: Node | DocumentFragment, to: HTMLElement): void {
+function appendSanitizedHtml(from: Node | DocumentFragment, to: Element): void {
   for (const child of Array.from(from.childNodes)) {
     if (child.nodeType === 3) {
       to.appendChild(document.createTextNode(child.textContent ?? ""));
@@ -1178,8 +1408,82 @@ function appendSanitizedHtml(from: Node | DocumentFragment, to: HTMLElement): vo
 
     const element = child as HTMLElement;
     const tag = element.tagName.toLowerCase();
-    if (!HTML_BLOCK_RENDERABLE.has(tag)) {
+    if (tag === "svg") {
+      const output = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      copySvgAttributes(element, output);
+      appendSanitizedSvg(element, output);
+      to.appendChild(output);
+      continue;
+    }
+    // Scripts, styles and custom tags are never inserted into the editor DOM;
+    // their original text is shown instead and the source is kept verbatim.
+    if (RAW_HTML_TAG_SET.has(tag) || !HTML_BLOCK_RENDERABLE.has(tag)) {
       to.appendChild(document.createTextNode(element.outerHTML));
+      continue;
+    }
+
+    if (tag === "iframe") {
+      const output = document.createElement("iframe");
+      const style = htmlNodeStyle(element.outerHTML);
+      if (style) output.setAttribute("style", style);
+      const src = safeMediaSrc(element.getAttribute("src") ?? "");
+      const srcdoc = element.getAttribute("srcdoc") ?? "";
+      if (src) output.setAttribute("src", src);
+      else if (srcdoc) output.setAttribute("srcdoc", srcdoc);
+      const title = element.getAttribute("title");
+      if (title) output.setAttribute("title", title);
+      appendCopyableAttributes(element, output);
+      // Embedded scripts may run, but only inside this opaque sandbox: no
+      // parent access, no same-origin privileges, no popups or navigation.
+      output.setAttribute("sandbox", "allow-scripts");
+      output.setAttribute("referrerpolicy", "no-referrer");
+      output.setAttribute("loading", "lazy");
+      to.appendChild(output);
+      continue;
+    }
+
+    if (tag === "video" || tag === "audio") {
+      const output = document.createElement(tag);
+      const style = htmlNodeStyle(element.outerHTML);
+      if (style) output.setAttribute("style", style);
+      const src = safeMediaSrc(element.getAttribute("src") ?? "");
+      if (src) output.setAttribute("src", src);
+      output.setAttribute("controls", "");
+      output.setAttribute("preload", "metadata");
+      if (tag === "video") {
+        const poster = safeMediaSrc(element.getAttribute("poster") ?? "");
+        if (poster) output.setAttribute("poster", poster);
+        if (element.hasAttribute("playsinline")) output.setAttribute("playsinline", "");
+      }
+      for (const flag of ["autoplay", "loop", "muted"]) {
+        if (element.hasAttribute(flag)) output.setAttribute(flag, "");
+      }
+      appendCopyableAttributes(element, output);
+      appendSanitizedHtml(element, output);
+      to.appendChild(output);
+      continue;
+    }
+
+    if (tag === "source" || tag === "track") {
+      const output = document.createElement(tag);
+      const src = safeMediaSrc(element.getAttribute("src") ?? "");
+      if (src) output.setAttribute("src", src);
+      const type = element.getAttribute("type") ?? "";
+      if (/^[a-z0-9!#$&^_.+-]+\/[a-z0-9!#$&^_.+-]+$/i.test(type)) {
+        output.setAttribute("type", type);
+      }
+      if (tag === "track") {
+        const kind = element.getAttribute("kind") ?? "";
+        if (/^(?:subtitles|captions|descriptions|chapters|metadata)$/i.test(kind)) {
+          output.setAttribute("kind", kind);
+        }
+        const lang = element.getAttribute("srclang") ?? "";
+        if (/^[a-z]{2,}(?:-[a-z0-9]+)*$/i.test(lang)) output.setAttribute("srclang", lang);
+        const label = element.getAttribute("label");
+        if (label) output.setAttribute("label", label);
+        if (element.hasAttribute("default")) output.setAttribute("default", "");
+      }
+      to.appendChild(output);
       continue;
     }
 
@@ -1188,13 +1492,21 @@ function appendSanitizedHtml(from: Node | DocumentFragment, to: HTMLElement): vo
     if (tag === "a") {
       const href = safeHref(element.getAttribute("href") ?? "");
       if (href) output.setAttribute("href", href);
+      const name = element.getAttribute("name") ?? "";
+      if (/^[a-z][\w:.-]*$/i.test(name)) output.setAttribute("name", name);
     }
     if (tag === "img") {
-      const src = safeHref(element.getAttribute("src") ?? "");
+      const src = safeMediaSrc(element.getAttribute("src") ?? "");
       if (src) output.setAttribute("src", src);
-      const alt = element.getAttribute("alt");
-      if (alt) output.setAttribute("alt", alt);
+      for (const name of ["alt", "title"]) {
+        const value = element.getAttribute(name);
+        if (value != null) output.setAttribute(name, value);
+      }
     }
+    if (tag === "details" && element.hasAttribute("open")) {
+      output.setAttribute("open", "");
+    }
+    appendCopyableAttributes(element, output);
     appendSanitizedHtml(element, output);
     to.appendChild(output);
   }
@@ -1207,6 +1519,14 @@ function renderHtmlBlock(source: string): HTMLElement {
   dom.dataset.htmlBlock = "";
   dom.dataset.value = source;
   dom.contentEditable = "false";
+
+  const first = /^<([a-z][a-z0-9-]*)/i.exec(source.trim());
+  if (first && RAW_HTML_TAG_SET.has(first[1].toLowerCase())) {
+    dom.classList.add("md-html-block-raw");
+    dom.dataset.rawHtml = "";
+    dom.textContent = source;
+    return dom;
+  }
 
   const template = document.createElement("template");
   template.innerHTML = source;

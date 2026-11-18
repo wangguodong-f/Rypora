@@ -308,16 +308,20 @@ src-tauri/                Rust 后端
 
 - Typora 识别的行内 HTML 标签（`em`、`strong`、`small`、`big`、`s`、`strike`、`cite`、
   `q`、`dfn`、`abbr`、`data`、`time`、`code`、`var`、`samp`、`kbd`、`sub`、`sup`、`i`、
-  `b`、`mark`、`ruby`、`span`、`ins`、`del`、`button`、`font`、`acronym`、`tt`、
-  `progress`、`meter`、`svg`、`a`）统一由可嵌套的行内节点处理，起始与结束标签保存在节点
-  属性里，因此 `<b><span>…</span></b>` 这类嵌套结构在保存后仍保持原样，不会被拆开或改写。HTML 元素内的文字
-  可以直接在渲染结果中编辑，其中的 Markdown 语法保持字面量，保存后原文不变；`br` 与 `wbr`
-  作为行内原子节点保留原始写法。
-- 块级 HTML 作为独立的编辑块，以 Typora 的默认样式渲染（`<p>` 的段间距、`<h1>`–`<h6>`
-  的字号、`<center>` 居中、`text-align`、颜色与背景色）。获得焦点时就地切换为带语法高亮的
-  HTML 源码编辑器（编辑时不再显示渲染内容）；失去焦点或按 ⌘/Ctrl+Enter 返回渲染视图。
-  编辑器兼容输入法输入。整个原始块（包括空白与换行）保存时原样写回。嵌套标签、注释、
-  `br`/`wbr`、安全的 `href`/`style` 属性以及未知标签都会保留。
+  `b`、`mark`、`ruby`、`rt`、`rp`、`bdi`、`bdo`、`output`、`span`、`ins`、`del`、`button`、
+  `font`、`acronym`、`tt`、`progress`、`meter`、`svg`、`a`）统一由可嵌套的行内节点处理，
+  起始与结束标签保存在节点属性里，因此 `<b><span>…</span></b>` 这类嵌套结构在保存后仍保持原样，
+  不会被拆开或改写。HTML 元素内的文字可以直接在渲染结果中编辑，其中的 Markdown 语法保持字面量，
+  保存后原文不变；`br` 与 `wbr` 作为行内原子节点保留原始写法。
+- 块级 HTML 与 Typora 一致：常见容器标签，以及 `<video>`、`<audio>`、`<iframe>`、`<svg>`
+  都作为独立的编辑块，以 Typora 风格默认样式渲染。获得焦点时就地切换为带语法高亮的 HTML 源码编辑器
+  （编辑时不再显示渲染内容）；失去焦点或按 ⌘/Ctrl+Enter 返回渲染视图。编辑器兼容输入法输入。
+  整个原始块（包括空白与换行）保存时原样写回，块内不会解析 Markdown。
+- 不可见标签（`script`、`style`、`meta`、`link`、`base`、`title`、`template`、`noscript`）
+  与 Typora 一样只显示源码。`<iframe>` 内容可以包含脚本，但会被强制放进不透明沙箱
+  （`sandbox="allow-scripts"`），无法访问主文档或本地文件。渲染时会忽略 `class`、`id`、`data-*`
+  和未知属性，只应用白名单内的 `href`/`src`/`style`；磁盘上的原始源码不变。HTML 实体可正常渲染
+  （`&reg;` → `®`），保存时统一规范化为 Typora 推荐的 Unicode 字符。
 - 扩展语法只影响编辑器内部表示，磁盘上仍是普通 Markdown，其他编辑器也能读取。
 - 为让 `~x~` 表示下标，GFM 的 `singleTilde` 被关闭；`~~x~~` 仍是删除线。
 - 警告框显示为带颜色的块，正文仍保存为 `> [!KIND]` 引用块。
