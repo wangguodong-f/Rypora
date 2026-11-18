@@ -12,17 +12,31 @@ import { useSettings } from "../stores/settings";
 import { useUi } from "../stores/ui";
 import { useWorkspace } from "../stores/workspace";
 
-export function resolveImageSrc(src: string): string {
+let reloadToken = 0;
+const refreshers = new Set<() => void>();
+
+export function resolveImageSrc(src: string, cacheBust = false): string {
   const tab = useTabs.getState().getActive();
-  return resolveImageSource(
+  const resolved = resolveImageSource(
     src,
     tab?.path ? dirname(tab.path) : null,
     useSettings.getState().imageRoot,
   );
+  if (
+    cacheBust &&
+    reloadToken > 0 &&
+    /^(asset:|https?:|file:)/i.test(resolved)
+  ) {
+    return `${resolved}${resolved.includes("?") ? "&" : "?"}rypora=${reloadToken}`;
+  }
+  return resolved;
 }
 
-let reloadToken = 0;
-const refreshers = new Set<() => void>();
+/** Let non-Markdown images (such as HTML blocks) follow "Reload All Images". */
+export function registerImageRefresh(refresh: () => void): () => void {
+  refreshers.add(refresh);
+  return () => refreshers.delete(refresh);
+}
 
 /** Force every image in the document to load again from disk. */
 export function reloadAllImages(): void {
@@ -39,12 +53,7 @@ const imageNodeView: NodeViewConstructor = (node) => {
   const apply = (target: typeof node) => {
     current = target;
     const src = String(target.attrs.src ?? "");
-    const resolved = resolveImageSrc(src);
-    // A cache-busting query re-reads the file after "Reload All Images".
-    const next =
-      reloadToken > 0 && /^(asset:|https?:|file:)/i.test(resolved)
-        ? `${resolved}${resolved.includes("?") ? "&" : "?"}rypora=${reloadToken}`
-        : resolved;
+    const next = resolveImageSrc(src, true);
     if (img.getAttribute("src") !== next) img.src = next;
     img.alt = String(target.attrs.alt ?? "");
     const title = target.attrs.title;

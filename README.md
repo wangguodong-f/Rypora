@@ -32,7 +32,9 @@ by the Rust backend.
   Markdown
 - Typora-compatible HTML (`<b>`, `<span>`, `<br>`, `<p>`, `<div>`, `<center>` and the other
   tags Typora recognises) renders inline and as blocks with live styling, keeps its original
-  tags and attributes when saved, and supports nesting
+  tags and attributes when saved, and supports nesting. Relative `<img src>` paths in HTML
+  blocks resolve against the current document, just like Markdown images, and follow the
+  image root setting and "Reload All Images"
 - Source mode (⌘/) edits the raw Markdown while sharing content with the WYSIWYG view
 - Inline (`$…$`) and block (`$$…$$`) math rendered with KaTeX; double-click a formula to edit it
 - Mermaid diagrams previewed live inside the document, and rendered to SVG on export

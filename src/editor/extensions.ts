@@ -10,6 +10,7 @@ import { $mark, $node, $remark, $view } from "@milkdown/kit/utils";
 import { imageSchema } from "@milkdown/kit/preset/commonmark";
 import type { NodeViewConstructor } from "@milkdown/kit/prose/view";
 import { getRefractor, hastToDom } from "./highlight";
+import { registerImageRefresh, resolveImageSrc } from "./images";
 
 interface MdNode {
   type: string;
@@ -1497,7 +1498,10 @@ function appendSanitizedHtml(from: Node | DocumentFragment, to: Element): void {
     }
     if (tag === "img") {
       const src = safeMediaSrc(element.getAttribute("src") ?? "");
-      if (src) output.setAttribute("src", src);
+      // Webview URLs are not relative to the Markdown file. Resolve local
+      // paths through Tauri's asset protocol so `<img src="assets/a.png">`
+      // inside an HTML block finds the same file as Markdown image syntax.
+      if (src) output.setAttribute("src", resolveImageSrc(src, true));
       for (const name of ["alt", "title"]) {
         const value = element.getAttribute(name);
         if (value != null) output.setAttribute(name, value);
@@ -1676,6 +1680,13 @@ function createHtmlBlockView(): NodeViewConstructor {
     dom.addEventListener("focus", enterEdit);
     dom.addEventListener("click", enterEdit);
 
+    // Re-resolve local image sources when the image root changes or the user
+    // asks to reload images from disk.
+    const unregisterRefresh = registerImageRefresh(() => {
+      if (editing) return;
+      dom.replaceChildren(...Array.from(renderHtmlBlock(source).childNodes));
+    });
+
     return {
       dom,
       update: (updated) => {
@@ -1697,6 +1708,7 @@ function createHtmlBlockView(): NodeViewConstructor {
       destroy: () => {
         dom.removeEventListener("focus", enterEdit);
         dom.removeEventListener("click", enterEdit);
+        unregisterRefresh();
       },
     };
   };
